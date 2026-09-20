@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { errMsg, fmtToken, fmtUnixUtc } from "../lib/format";
-import { useWallet } from "../lib/wallet";
+import { useWallet, useChainNow } from "../lib/wallet";
 
 interface FlightRow {
   id: number;
@@ -14,6 +14,7 @@ type Msg = { text: string; kind: "error" | "success" } | null;
 
 export default function FlightsPage() {
   const { insuranceRead, insurance, token, address } = useWallet();
+  const chainNow = useChainNow();
   const [flights, setFlights] = useState<FlightRow[]>([]);
   const [owned, setOwned] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -96,7 +97,8 @@ export default function FlightsPage() {
     }
   }
 
-  const now = Math.floor(Date.now() / 1000);
+  // Must match the contract's own check (`block.timestamp + 24h <= scheduledArrival`).
+  const now = chainNow ?? Math.floor(Date.now() / 1000);
 
   return (
     <div>

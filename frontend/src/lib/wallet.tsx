@@ -1,5 +1,5 @@
 import { BrowserProvider, Contract, JsonRpcProvider, JsonRpcSigner } from "ethers";
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { DEMO_TOKEN_ABI, FLIGHT_DELAY_INSURANCE_ABI } from "./abi";
 
 declare global {
@@ -93,6 +93,36 @@ export function useWallet(): WalletState {
 
 export function isWrongNetwork(chainId: bigint | null): boolean {
   return chainId !== null && chainId !== EXPECTED_CHAIN_ID;
+}
+
+/**
+ * The contracts enforce their time rules with `block.timestamp` (the 24h sale
+ * cutoff and the 7-day refund timeout), so the UI has to read that clock too.
+ * `Date.now()` disagrees whenever the chain does not follow wall time -- e.g. a
+ * local chain started in the past for a real-data replay (scripts/local-e2e.ts),
+ * where the browser clock would wrongly report "Sales closed" -- and a skewed
+ * browser clock could otherwise enable a transaction the contract will revert.
+ * Returns null until the first block is read; callers fall back to the local clock.
+ */
+export function useChainNow(): number | null {
+  const [chainNow, setChainNow] = useState<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const block = await readOnlyProvider.getBlock("latest");
+        if (alive && block) setChainNow(block.timestamp);
+      } catch {
+        // leave it null; the caller falls back to the browser clock
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  return chainNow;
 }
 
 export const EXPECTED_CHAIN_NAME = CHAIN_NAME;

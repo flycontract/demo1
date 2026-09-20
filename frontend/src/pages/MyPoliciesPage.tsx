@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { POLICY_STATUS_LABELS } from "../lib/abi";
 import { errMsg, fmtToken, fmtUnixUtc } from "../lib/format";
-import { useWallet } from "../lib/wallet";
+import { useChainNow, useWallet } from "../lib/wallet";
 
 interface PolicyRow {
   id: number;
@@ -22,6 +22,7 @@ const PILL_CLASS = ["pill-active", "pill-verifying", "pill-paid", "pill-nopay", 
 
 export default function MyPoliciesPage() {
   const { insuranceRead, insurance, address } = useWallet();
+  const chainNow = useChainNow();
   const [rows, setRows] = useState<PolicyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -84,7 +85,8 @@ export default function MyPoliciesPage() {
     }
   }
 
-  const now = Math.floor(Date.now() / 1000);
+  // Must match the contract's own check (`block.timestamp > scheduledArrival + 7 days`).
+  const now = chainNow ?? Math.floor(Date.now() / 1000);
   const REPORT_TIMEOUT = 7 * 24 * 3600;
 
   function actionFor(row: PolicyRow) {
