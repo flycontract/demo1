@@ -43,26 +43,31 @@ async function recordRequest(
 }
 
 async function processRequest(db: ReturnType<typeof openDb>, contract: Contract, req: RequestRow) {
-  const candidateDates = [...new Set([hkDateFromUnix(req.scheduled_arrival), hkDateFromUnix(req.scheduled_arrival + 24 * 3600)])];
+  // PRD §5.3.1: filter by the record date in the response. The record date is the
+  // Hong Kong calendar date of the registered scheduled arrival; HKIA keeps a
+  // flight in that group and expresses a cross-midnight actual arrival inside the
+  // status text (e.g. "At gate 00:11 (20/09/2026)"), so the next day's group is
+  // not needed. Mixing the next day in made every daily flight number ambiguous
+  // -- the same flight number has its own, different record the next day -- which
+  // blocked settlement forever.
+  const recordDate = hkDateFromUnix(req.scheduled_arrival);
 
-  const combinedGroups: HkDateGroup[] = [];
+  let groups: HkDateGroup[] = [];
   let latestFetch: { sourceUrl: string; fetchedAt: number } | null = null;
   try {
-    for (const date of candidateDates) {
-      const { groups, sourceUrl, fetchedAt } = await getPastFlights(db, date, {
-        timeoutMs: config.httpTimeoutMs,
-        maxDailyRefresh: config.maxDailyRefresh,
-      });
-      combinedGroups.push(...groups);
-      latestFetch = { sourceUrl, fetchedAt };
-    }
+    const fetched = await getPastFlights(db, recordDate, {
+      timeoutMs: config.httpTimeoutMs,
+      maxDailyRefresh: config.maxDailyRefresh,
+    });
+    groups = fetched.groups.filter((g) => g.date === recordDate);
+    latestFetch = { sourceUrl: fetched.sourceUrl, fetchedAt: fetched.fetchedAt };
   } catch (err) {
     markAttempt(db, req.request_id, `fetch failed: ${(err as Error).message}`);
     console.warn(`[oracle] request ${req.request_id}: HKIA fetch failed, will retry: ${(err as Error).message}`);
     return;
   }
 
-  const match = findMatch(combinedGroups, req.flight_no, req.origin);
+  const match = findMatch(groups, req.flight_no, req.origin);
 
   if (match.status === "pending") {
     markAttempt(db, req.request_id, null);
