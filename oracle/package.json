@@ -1,0 +1,27 @@
+{
+  "name": "flight-delay-oracle",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Node.js/TypeScript oracle service for FlightDelayInsurance: listens for VerificationRequested events, fetches HKIA's official past-flights API, and submits fulfillVerification.",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p .",
+    "test": "node --import tsx --test src/*.test.ts"
+  },
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.14.15",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}

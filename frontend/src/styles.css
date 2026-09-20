@@ -1,0 +1,210 @@
+:root {
+  color-scheme: light dark;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #0f1220;
+  color: #e7e9f5;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 20px;
+  background: #171a2c;
+  border-bottom: 1px solid #2a2e4a;
+  flex-wrap: wrap;
+}
+
+.nav-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: #3a3f66;
+  color: #c9cdf0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.tab {
+  color: #b7bbe0;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.tab:hover {
+  background: #22264220;
+}
+
+.tab-active {
+  background: #2a2e4a;
+  color: #fff;
+}
+
+.wallet {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.address {
+  font-family: ui-monospace, monospace;
+  background: #222642;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.warn {
+  color: #ffb454;
+  font-size: 0.8rem;
+}
+
+.content {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  color: #9ba0cc;
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+
+th, td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid #262a48;
+  font-size: 0.88rem;
+}
+
+th {
+  color: #9ba0cc;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+button {
+  background: #4a5bf5;
+  color: white;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: #2a2e4a;
+}
+
+button.danger {
+  background: #c9435b;
+}
+
+input, select {
+  background: #171a2c;
+  border: 1px solid #2a2e4a;
+  color: #e7e9f5;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.card {
+  background: #171a2c;
+  border: 1px solid #262a48;
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 1.05rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.form-row label {
+  font-size: 0.8rem;
+  color: #9ba0cc;
+  min-width: 130px;
+}
+
+.pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.pill-active { background: #2a3f5f; color: #7fb8ff; }
+.pill-verifying { background: #4a3f1f; color: #f5c96a; }
+.pill-paid { background: #1f4a2f; color: #7fe0a0; }
+.pill-nopay { background: #333752; color: #b7bbe0; }
+.pill-refunded { background: #4a2a3f; color: #f57fb0; }
+
+.status-msg {
+  font-size: 0.82rem;
+  margin-top: 8px;
+  color: #9ba0cc;
+}
+
+.status-msg.error {
+  color: #ff8c8c;
+}
+
+.status-msg.success {
+  color: #7fe0a0;
+}
+
+.empty {
+  color: #6b7099;
+  font-style: italic;
+  padding: 20px 0;
+}

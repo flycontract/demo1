@@ -1,0 +1,15 @@
+{
+  "name": "flight-delay-insurance-dapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hardhat workspace: compiles contracts/ and deploys DemoToken + FlightDelayInsurance to Sepolia. Contract logic is also exercised without Node via test_python/ (see README.md).",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.9",
+    "dotenv": "^16.4.5"
+  }
+}
