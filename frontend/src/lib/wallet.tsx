@@ -19,6 +19,8 @@ interface WalletState {
   connecting: boolean;
   error: string | null;
   connect: () => Promise<void>;
+  /** Ask the injected wallet to add (if needed) and switch to the expected chain. */
+  switchNetwork: () => Promise<void>;
   signer: JsonRpcSigner | null;
   token: Contract | null; // connected to signer when available
   insurance: Contract | null;
@@ -30,6 +32,36 @@ interface WalletState {
 const readOnlyProvider = new JsonRpcProvider(import.meta.env.VITE_RPC_URL as string);
 const tokenReadOnly = new Contract(TOKEN_ADDRESS, DEMO_TOKEN_ABI, readOnlyProvider);
 const insuranceReadOnly = new Contract(INSURANCE_ADDRESS, FLIGHT_DELAY_INSURANCE_ABI, readOnlyProvider);
+
+/**
+ * EIP-3085 / EIP-3326 params for the expected chain. `blockExplorerUrls` is
+ * deliberately omitted: a local Hardhat chain has no explorer, and MetaMask's
+ * manual "add a network" form otherwise refuses to save without one.
+ */
+const EXPECTED_CHAIN_PARAMS = {
+  chainId: `0x${EXPECTED_CHAIN_ID.toString(16)}`,
+  chainName: CHAIN_NAME,
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: [import.meta.env.VITE_RPC_URL as string],
+};
+
+async function requestExpectedChain(): Promise<void> {
+  const eth = window.ethereum;
+  if (!eth) throw new Error("MetaMask (or another injected wallet) was not found in this browser.");
+  try {
+    await eth.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: EXPECTED_CHAIN_PARAMS.chainId }],
+    });
+  } catch (err) {
+    // 4902: the wallet does not know this chain yet, so add it first.
+    if ((err as { code?: number }).code === 4902) {
+      await eth.request({ method: "wallet_addEthereumChain", params: [EXPECTED_CHAIN_PARAMS] });
+      return;
+    }
+    throw err;
+  }
+}
 
 const WalletContext = createContext<WalletState | null>(null);
 
@@ -64,6 +96,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const switchNetwork = useCallback(async () => {
+    setError(null);
+    try {
+      await requestExpectedChain();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }, []);
+
   const token = useMemo(() => (signer ? new Contract(TOKEN_ADDRESS, DEMO_TOKEN_ABI, signer) : null), [signer]);
   const insurance = useMemo(
     () => (signer ? new Contract(INSURANCE_ADDRESS, FLIGHT_DELAY_INSURANCE_ABI, signer) : null),
@@ -76,6 +117,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     connecting,
     error,
     connect,
+    switchNetwork,
     signer,
     token,
     insurance,
