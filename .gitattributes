@@ -1,1 +1,4 @@
 docs/evidence/sq898-plan-input-2026-10-29.txt text eol=lf
+frontend/src/lib/generatedInsuranceAbi.ts text eol=lf
+frontend/src/lib/generatedTokenAbi.ts text eol=lf
+oracle/src/generatedInsuranceAbi.ts text eol=lf
