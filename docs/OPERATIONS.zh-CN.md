@@ -74,6 +74,17 @@ npm --prefix oracle run start
 
 在首份购买**之前**，独立保全官方逐班计划起飞/到达、航段、日期时区、运营号和代码共享、抓取时刻、原始资料及哈希。当前候选为 [10 月 29 日 SQ898](phase3-sq898-candidate-2026-10-29.md)，备选为 [10 月 30 日 SQ898](phase3-sq898-backup-2026-10-30.md)；都尚未登记。用户已接受 [教学条款 v1](teaching-terms-v1-2026-10-26.md)；销售还需同时满足：合约解除暂停、仅核准航班 `sellable=true`、前端销售开关为 true、当前链时间不晚于计划起飞前 24 小时。缺任一门槛则不买，不倒填。
 
+用户随后另行授权了**仅限 10 月 29 日 SQ898** 的两笔保险方交易：全局暂停保护下登记（该航班 `sellable=true`），再解除全局暂停；新增总预算 0.02 Sepolia ETH、每笔 maxFeePerGas 不超过 10 gwei。该授权不含备选航班，也不代替买家钱包签名。登记脚本先核对原计划文件哈希 `0x1075e638cf62a9b3499f8e5cd4b07fcfb90f927ee6c32f48c01c8e38490597cd`、链上角色/资金/暂停、链上时间距销售截止至少还有一小时，并重新从航空公司和香港机场官方页面抓取计划。任一来源改变或不可用即停。获得授权后的原工作目录命令：
+
+```powershell
+$env:FLIGHT_BROADCAST_AUTHORIZED = 'true'
+$env:FLIGHT_BUDGET_ETH = '0.02'
+$env:FLIGHT_MAX_FEE_GWEI = '10'
+npm run admit:sq898
+```
+
+脚本将新抓原文保存到本机 `courses/COMP7610/evidence/`，将抓取时间与哈希、交易 intent/哈希/回执保存到 `deployments/flight-sq898-2026-10-29.json`。中断只用相同源码提交和相同参数续作；无哈希 intent 要人工核 nonce，不删除清单重新做。两笔完成、实际官网资料再次一致后，才将原 `frontend/.env` 的 `VITE_SALES_ENABLED` 改为 `true` 并重启前端。开售后若需立刻止售，保险方调用 `pause()` 或 `setFlightSellable(flightId,false)`；关前端按钮只是附加保护。
+
 购买后立即保存钱包交易和区块时间，核对用户 FDT -10、资金池 +10、赔付预留 +100、保单 Active。到计划香港到达日结束后再请求核验；官方历史数据若未发布、403、缺失、冲突或格式未知就保持 pending。预言机原始字节哈希只证明本地字节一致，不证明机场资料真实或以后不会更正。准点结案不赔也是有效真实闭环；本地模拟退款不能冒充真实七天退款。
 
 ## 7. 合并与交接

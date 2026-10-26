@@ -1,5 +1,5 @@
 import { BrowserProvider, Contract, JsonRpcProvider, JsonRpcSigner, isAddress } from "ethers";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DEMO_TOKEN_ABI, FLIGHT_DELAY_INSURANCE_ABI } from "./abi";
 
 declare global {
@@ -77,11 +77,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [signer, setSigner] = useState<JsonRpcSigner | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const connectingRef = useRef(false);
 
   useEffect(() => {
     const eth = window.ethereum;
     if (!eth) return;
-    const changed = () => { setSigner(null); setAddress(null); setChainId(null); setError("Wallet changed. Reconnect before sending a transaction."); };
+    const changed = () => {
+      // MetaMask can emit accountsChanged while the initial connection request
+      // resolves. The connection below reads the final account and chain.
+      if (connectingRef.current) return;
+      setSigner(null); setAddress(null); setChainId(null);
+      setError("Wallet changed. Reconnect before sending a transaction.");
+    };
     eth.on?.("accountsChanged", changed);
     eth.on?.("chainChanged", changed);
     return () => { eth.removeListener?.("accountsChanged", changed); eth.removeListener?.("chainChanged", changed); };
@@ -93,6 +100,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setError("MetaMask (or another injected wallet) was not found in this browser.");
       return;
     }
+    connectingRef.current = true;
     setConnecting(true);
     try {
       const provider = new BrowserProvider(window.ethereum);
@@ -102,9 +110,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setSigner(s);
       setAddress(await s.getAddress());
       setChainId(network.chainId);
+      setError(null);
     } catch (err) {
       setError((err as Error).message);
     } finally {
+      connectingRef.current = false;
       setConnecting(false);
     }
   }, []);

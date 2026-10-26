@@ -151,7 +151,7 @@ export default function InsurerAdminPage() {
 
   async function toggleSellable(f: FlightRow) {
     if (!insurance) return;
-    if (!f.sellable && !salesEnabled) { setMsg({ text: "Terms are awaiting approval; sales remain disabled.", kind: "error" }); return; }
+    if (!f.sellable && !salesEnabled) { setMsg({ text: "Sales are currently closed. Verify the official flight plan before opening sales.", kind: "error" }); return; }
     await withBusy(async () => {
       return insurance.setFlightSellable(f.id, !f.sellable);
     }, `${f.flightNo} is now ${!f.sellable ? "sellable" : "not sellable"}.`);
