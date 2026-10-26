@@ -1,6 +1,6 @@
 # Phase 4 final reproduction, video and merge handoff
 
-This is a checklist for the final COMP7610 submission due **8 November 2026**. The source branch is `origin/icn`; do not publish or push `main` until the final evidence and review are complete. On 27 October, `origin/main` was the initial commit and an ancestor of `origin/icn` (0 commits unique to main, 10 unique to icn before the final purchase update); recheck before merging.
+This is a checklist for the final COMP7610 submission due **8 November 2026**. The source branch is `origin/icn`; do not publish or push `main` until the final evidence and review are complete. On 27 October, `origin/main` was the initial commit and an ancestor of `origin/icn`; recheck their merge base and commit counts before merging.
 
 ## 1. Fix the final evidence boundary
 
