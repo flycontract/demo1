@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/lib/abi.ts","./src/lib/format.ts","./src/lib/wallet.tsx","./src/pages/flightspage.tsx","./src/pages/insureradminpage.tsx","./src/pages/mypoliciespage.tsx"],"version":"5.9.3"}

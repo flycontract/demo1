@@ -24,11 +24,13 @@ export default function MyPoliciesPage() {
   const { insuranceRead, insurance, address } = useWallet();
   const [rows, setRows] = useState<PolicyRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
   const [refresh, setRefresh] = useState(0);
 
   const load = useCallback(async () => {
+    setLoadError(null);
     if (!address) {
       setRows([]);
       setLoading(false);
@@ -36,13 +38,12 @@ export default function MyPoliciesPage() {
     }
     setLoading(true);
     try {
-      const filter = insuranceRead.filters.PolicyBought(null, address, null);
-      const events = await insuranceRead.queryFilter(filter);
-      const ids = [...new Set(events.map((e) => Number((e as unknown as { args: { policyId: bigint } }).args.policyId)))];
-
+      const count = Number(await insuranceRead.policyCount());
       const out: PolicyRow[] = [];
-      for (const id of ids) {
+      for (let id = 0; id < count; id++) {
         const p = await insuranceRead.policies(id);
+        if (p.holder.toLowerCase() !== address.toLowerCase()) continue;
+
         const flightId = Number(p.flightId);
         const f = await insuranceRead.flights(flightId);
         const r = await insuranceRead.flightResults(flightId);
@@ -61,6 +62,8 @@ export default function MyPoliciesPage() {
       }
       out.sort((a, b) => b.id - a.id);
       setRows(out);
+    } catch (err) {
+      setLoadError(errMsg(err));
     } finally {
       setLoading(false);
     }
@@ -192,6 +195,8 @@ export default function MyPoliciesPage() {
       {address &&
         (loading ? (
           <p className="empty">Loading your policies…</p>
+        ) : loadError ? (
+          <p className="status-msg error">Could not load your policies: {loadError}</p>
         ) : rows.length === 0 ? (
           <p className="empty">You haven't bought any policies yet.</p>
         ) : (

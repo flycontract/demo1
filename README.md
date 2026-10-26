@@ -66,7 +66,7 @@ data-verification trust boundaries this demo does **not** eliminate.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install py-solc-x eth-tester web3 eth-account
+pip install py-solc-x eth-tester web3 eth-account py-evm
 python test_python/run_tests.py   # 24 acceptance checks (PRD §8's contract-side items)
 python test_python/demo.py        # readable end-to-end run: buy → oracle reports → settle
 ```

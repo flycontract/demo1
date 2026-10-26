@@ -4,12 +4,14 @@
   "private": true,
   "description": "Hardhat workspace: compiles contracts/ and deploys DemoToken + FlightDelayInsurance to Sepolia. Contract logic is also exercised without Node via test_python/ (see README.md).",
   "scripts": {
-    "compile": "hardhat compile",
+    "compile": "hardhat compile --show-stack-traces",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^16.4.5",
     "hardhat": "^2.22.9",
-    "dotenv": "^16.4.5"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   }
 }
