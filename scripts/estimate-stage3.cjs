@@ -40,16 +40,17 @@ async function main() {
     const insuranceAddress = await insurance.getAddress();
     gas.push(["approve 10000 FDT", (await (await token.approve(insuranceAddress, 10_000n)).wait()).gasUsed]);
     gas.push(["fund pool 10000 FDT", (await (await insurance.fundPool(10_000n)).wait()).gasUsed]);
+    gas.push(["pause on-chain sales", (await (await insurance.pause()).wait()).gasUsed]);
     const now = (await ethers.provider.getBlock("latest")).timestamp;
     const departure = now + 3 * 86400;
     const arrival = departure + 4 * 3600;
-    gas.push(["register sample flight (not live)", (await (await insurance.registerFlight({
+    const registrationGas = (await (await insurance.registerFlight({
       flightNo: "SQ 898", origin: "SIN", departureDate: new Date(departure * 1000).toISOString().slice(0, 10),
       scheduledDeparture: departure, scheduledArrival: arrival,
       planEvidenceHash: ethers.keccak256(ethers.toUtf8Bytes("gas-estimate-only")),
       planSourceUrl: "https://www.singaporeair.com/", planFetchedAt: now,
       aliases: [], sellable: false,
-    })).wait()).gasUsed]);
+    })).wait()).gasUsed;
     let total = 0n;
     for (const [label, units] of gas) {
       total += units;
@@ -57,8 +58,9 @@ async function main() {
     }
     const bufferCost = total * feeCap * 15n / 10n;
     const conservativeCost = total * 10_000_000_000n * 15n / 10n;
-    console.log(`Five insurer transactions: ${total} measured gas; 1.5x buffered current-fee estimate ${formatEther(bufferCost)} ETH`);
-    console.log(`Conservative scenario at 10 gwei and 1.5x gas: ${formatEther(conservativeCost)} ETH`);
+    console.log(`Five deployment/pause transactions: ${total} measured gas; 1.5x buffered current-fee estimate ${formatEther(bufferCost)} ETH`);
+    console.log(`Deployment/pause scenario at 10 gwei and 1.5x gas: ${formatEther(conservativeCost)} ETH`);
+    console.log(`Separate future flight registration: ${registrationGas} gas, 10 gwei/1.5x ${formatEther(registrationGas * 10_000_000_000n * 15n / 10n)} ETH`);
     console.log(`Current insurer balance covers that scenario: ${insurerBalance >= conservativeCost}`);
     console.log("Local gas units and current network fee are estimates, not a transaction cap or broadcast.");
   } finally { rpc.destroy(); }

@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve, relative } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -80,12 +81,41 @@ try {
   if (mode === "deployed" && tokenAddress && insuranceAddress) {
     if (await rpc.getCode(tokenAddress) === "0x" || await rpc.getCode(insuranceAddress) === "0x") failures.push("Deployed contract bytecode missing");
     else {
-      const c = new Contract(insuranceAddress,["function token() view returns (address)","function oracle() view returns (address)","function insurer() view returns (address)"],rpc);
+      const c = new Contract(insuranceAddress,["function token() view returns (address)","function oracle() view returns (address)","function insurer() view returns (address)","function poolBalance() view returns (uint256)","function reservedPayouts() view returns (uint256)","function paused() view returns (bool)","function flightCount() view returns (uint256)"],rpc);
       if (getAddress(await c.token()) !== tokenAddress) failures.push("insurance.token mismatch");
       if (getAddress(await c.oracle()) !== oracleSigner) failures.push("insurance.oracle mismatch");
       if (getAddress(await c.insurer()) !== insurer) failures.push("insurance.insurer mismatch");
-      const block = await rpc.getBlock(Number(oracle.DEPLOY_BLOCK));
-      if (!block) failures.push("DEPLOY_BLOCK not found");
+      const pool = await c.poolBalance();
+      const reserved = await c.reservedPayouts();
+      const paused = await c.paused();
+      const count = await c.flightCount();
+      console.log(`On-chain pool=${pool} FDT reserved=${reserved} FDT paused=${paused} flights=${count}`);
+      if (pool < reserved) failures.push("Pool is below reserved payouts");
+      if (count === 0n && (pool !== 10000n || reserved !== 0n || !paused)) failures.push("Initial pool, reserve or pause state mismatch");
+      const manifestPath = resolve(root,"deployments/sepolia.json");
+      if (!existsSync(manifestPath)) failures.push("Public deployment manifest missing");
+      else {
+        const manifest = JSON.parse(readFileSync(manifestPath,"utf8"));
+        const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
+        const tokenArtifact = JSON.parse(readFileSync(resolve(root,"artifacts/contracts/DemoToken.sol/DemoToken.json"),"utf8"));
+        const insuranceArtifact = JSON.parse(readFileSync(resolve(root,"artifacts/contracts/FlightDelayInsurance.sol/FlightDelayInsurance.json"),"utf8"));
+        if (manifest.chainId !== 11155111 || manifest.tokenAddress !== tokenAddress ||
+            manifest.insuranceAddress !== insuranceAddress || manifest.insurer !== insurer || manifest.oracle !== oracleSigner)
+          failures.push("Deployment manifest identity mismatch");
+        if (manifest.tokenAbiSha256 !== digest(JSON.stringify(tokenArtifact.abi)) ||
+            manifest.insuranceAbiSha256 !== digest(JSON.stringify(insuranceArtifact.abi)))
+          failures.push("Deployment ABI hash mismatch");
+        if (Number(oracle.DEPLOY_BLOCK) !== manifest.insuranceDeployBlock) failures.push("DEPLOY_BLOCK differs from manifest");
+        for (const name of ["tokenDeploy","insuranceDeploy","approve","fundPool","pause"]) {
+          const saved = manifest.steps?.[name]?.receipt;
+          if (!saved?.transactionHash) { failures.push(`${name}: public receipt missing`); continue; }
+          const live = await rpc.getTransactionReceipt(saved.transactionHash);
+          if (!live || live.status !== 1 || live.blockNumber !== saved.blockNumber) failures.push(`${name}: chain receipt mismatch`);
+          if (name === "tokenDeploy" && live?.contractAddress !== tokenAddress) failures.push("Token receipt contract address mismatch");
+          if (name === "insuranceDeploy" && (live?.contractAddress !== insuranceAddress || live?.blockNumber !== Number(oracle.DEPLOY_BLOCK)))
+            failures.push("Insurance deployment receipt/block mismatch");
+        }
+      }
     }
   }
   rpc.destroy();

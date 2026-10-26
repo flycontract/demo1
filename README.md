@@ -1,5 +1,7 @@
 # COMP7610 flight insurance teaching demo
 
+Stage-three update (26 October 2026): the owner explicitly accepted the teaching metric and settlement summary. The dedicated insurer and oracle accounts each have 0.2 Sepolia ETH. Five deployment/funding/pause transactions are authorized under a combined 0.08 Sepolia ETH budget and 10 gwei max-fee cap. Deployment still requires the preflight reproduction gate; no contracts have been deployed yet.
+
 This branch implements phase two locally. **No Sepolia contracts have been deployed. Real sales are disabled.** The project owner delegated the teaching-demo rule choice; [terms v1](docs/teaching-terms-v1-2026-10-26.md) now uses the airport's published **At gate** time versus an independently frozen official planned arrival, or explicit **Cancelled**. The historical API's `time` field is not proven to be an original future plan and must not be used as one in real underwriting.
 
 ## Protocol implemented

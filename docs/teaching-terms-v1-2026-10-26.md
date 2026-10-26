@@ -1,6 +1,6 @@
 # Teaching flight delay cover: terms v1 (26 October 2026)
 
-The project owner delegated the choice of **teaching-demo terms** on 26 October 2026. This document records the chosen rule for the Sepolia prototype; it does not represent a real insurance policy or the owner's personal endorsement of every phrase. FDT has no cash value. Real flight sales remain disabled until deployment and flight-specific evidence checks are complete.
+The project owner delegated drafting of **teaching-demo terms**, then explicitly accepted the metric and settlement summary on 26 October 2026. This document records that rule for the Sepolia prototype; it is not a real insurance policy. FDT has no cash value. Real flight sales remain disabled until deployment and flight-specific evidence checks are complete.
 
 ## Fixed cover
 
