@@ -36,7 +36,7 @@ npm run secret:scan
 
 ## 3. Sepolia 部署与防重做
 
-本次五笔部署已完成；下列命令保留供审阅和**同一公开清单下的异常续作**，不要再次从空目录部署。原操作目录先运行 `npm run compile`、`npm run abi:check`、`npm run env:check -- deployed`，确认工作树中的源码提交、chainId、公开账户、余额和预算。用户仅授权过本次五笔，未授权新航班登记、开售或买家签名。本次批准的参数为：
+本次五笔部署已完成；下列命令保留供审阅和**同一公开清单下的异常续作**，不要再次从空目录部署。原操作目录先运行 `npm run compile`、`npm run abi:check`、`npm run env:check -- deployed`，确认工作树中的源码提交、chainId、公开账户、余额和预算。用户先授权了五笔部署交易，随后另行授权了 10 月 29 日 SQ898 的登记和开售两笔交易；买家领取及投保由本人签名。以下参数仅说明当时批准的部署预算，不能视为新交易授权：
 
 ```powershell
 $env:SEPOLIA_BROADCAST_AUTHORIZED = 'true'
@@ -92,7 +92,7 @@ $p = Start-Process -FilePath $node22 -ArgumentList ('"' + $cli + '" src/index.ts
 
 不要靠删 SQLite 停止服务。机器关机或休眠会停止轮询；跨日结算前须重新核对进程、数据库检查点及日志。本机进程存活不等于结束聊天后我会主动跟进。
 
-前端开发服务：`npm --prefix frontend run dev -- --host 127.0.0.1`；在其终端 `Ctrl+C` 停止。浏览器用买家原 MetaMask 连接 Sepolia，用户本人解锁、批准连接和签名；投保 `approve` 仅 10 FDT。先测网络/地址显示、错链禁写、切账户重连、领 200 FDT 和回执。用户钱包的 EIP-7702 标记不能单独作为拒绝理由，以实际交互为准。
+前端开发服务：`npm --prefix frontend run dev -- --host 127.0.0.1`；在其终端 `Ctrl+C` 停止。浏览器用买家原 MetaMask 连接 Sepolia，用户本人解锁、批准连接和签名；投保 `approve` 仅 10 FDT。领币、授权、购买及原买家地址的 EIP-7702 实际交互已成功。Chrome MetaMask 显示“以太坊”时，页面刷新／重连后仍显示 Sepolia 保单，错链禁写验收没有通过；用户要求暂缓该项修复。原因查明并复测前，不在该浏览器会话发起写操作。账户切换重连也仍待实测。
 
 ## 6. 真实航班门槛与结算
 

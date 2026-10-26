@@ -43,6 +43,8 @@ git status --short
 
 Next eligibility check: **30 October 2026 00:00 HKT**, after the planned Hong Kong arrival date ends. Inspect the hidden Sepolia oracle PID, logs and SQLite checkpoint using [operations](OPERATIONS.zh-CN.md); restart after machine sleep or shutdown. The buyer must personally sign `requestVerification` when the contract permits it. If the official historical endpoint returns 403, missing, ambiguous or unknown data, preserve the failure and wait under the configured low-frequency retry policy. Seven-day unresolved refund eligibility begins **5 November 2026 22:45 HKT**. No automation has been authorized, and a local background process is not a guarantee of unattended execution.
 
+The Chrome wrong-network browser check is open: MetaMask showed Ethereum while the DApp still displayed Sepolia data after refresh/reconnect. The owner deferred changes to this guard. Do not perform a browser write action until provider/network state has been diagnosed and the wallet shows Sepolia consistently; preserve this as an explicit Phase 3A limitation. Account-switch/reconnect remains untested.
+
 ## 5. Final review and merge
 
 Before any final report or main merge, rerun secret scan and deployment checks, verify all receipt links and balances, close or explicitly list all real-data gaps, and include contract/ABI limitations: single trusted insurer/oracle/source, mutable official data, one final on-chain settlement. Fetch both branches and review `git log --oneline origin/main..origin/icn`, `git diff --stat origin/main...origin/icn`, and the merge base. Open a normal review/PR or fast-forward **only after** the owner authorizes final publication; do not reset, force-push or copy `.env` into the merge.
