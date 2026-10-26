@@ -1,6 +1,6 @@
 # COMP7610 阶段三操作与交接
 
-本文只针对 Sepolia（chainId 11155111）课程演示。FDT 是零小数位的测试代币，不是现金或真实保险。历史回放、合成模拟、未来航班事前投保必须分别标注。当前合约和账户的**实际状态**以 `deployments/sepolia.json` 和[阶段三A验收](phase3a-acceptance-2026-10-26.md)为准。2026-10-26 已部署并链上暂停；目前无登记航班、无投保。
+本文只针对 Sepolia（chainId 11155111）课程演示。FDT 是零小数位的测试代币，不是现金或真实保险。历史回放、合成模拟、未来航班事前投保必须分别标注。当前合约和账户的**实际状态**以 `deployments/sepolia.json`、`deployments/flight-sq898-2026-10-29.json` 及[阶段三B实时记录](phase3b-live-status-2026-10-27.md)为准。合约已部署；29 日 SQ898 已登记并开售，购买仍待买家签名及链上核验。
 
 ## 1. 身份与文件
 
@@ -68,11 +68,35 @@ npm --prefix oracle run start
 
 保持终端运行；停止用该终端 `Ctrl+C`。重启仍使用同一 `oracle/.env` 和 `oracle/oracle-sepolia.sqlite`，服务会按确认块和重叠区间回扫事件，避免重复处理。不要删数据库来修复未知状态。2026-10-26 已验证启动、停止、重启：scope 为 `11155111:0x0e8a379ca510aae2580a15a22f0a97bbf370da73`，检查点由 `11999014` 前进到 `11999017`，请求数 0。日志如有 403、歧义、尚未发布或未知格式，只能继续 pending，并按配置低频重试。服务启动成功不等于已有真实回调；真实交易需核对请求、原始响应、证据哈希、回调回执和保单终态。
 
+本机当前另用隐藏进程运行 Sepolia oracle。公开 PID 写在 `courses/COMP7610/evidence/phase3-oracle-sepolia.pid`，标准输出/错误分别为同目录的 `phase3-oracle-sepolia.stdout.log`、`phase3-oracle-sepolia.stderr.log`。在仓库根目录检查、停止、重新启动：
+
+```powershell
+$oracleDir = (Resolve-Path 'oracle').Path
+$evidenceDir = (Resolve-Path '../evidence').Path
+$node22 = 'F:\Environment\Node\node-v22.23.2-win-x64\node.exe'
+$pidFile = Join-Path $evidenceDir 'phase3-oracle-sepolia.pid'
+$oraclePid = [int](Get-Content -LiteralPath $pidFile)
+$process = Get-CimInstance Win32_Process -Filter "ProcessId=$oraclePid"
+if ($process -and $process.ExecutablePath -eq $node22 -and $process.CommandLine -like '*tsx*src/index.ts*') {
+    Get-Content -LiteralPath (Join-Path $evidenceDir 'phase3-oracle-sepolia.stdout.log') -Tail 20
+    # Only when a restart is needed:
+    Stop-Process -Id $oraclePid
+}
+$cli = (Resolve-Path 'oracle/node_modules/tsx/dist/cli.mjs').Path
+$p = Start-Process -FilePath $node22 -ArgumentList ('"' + $cli + '" src/index.ts') `
+    -WorkingDirectory $oracleDir -WindowStyle Hidden `
+    -RedirectStandardOutput (Join-Path $evidenceDir 'phase3-oracle-sepolia.stdout.log') `
+    -RedirectStandardError (Join-Path $evidenceDir 'phase3-oracle-sepolia.stderr.log') -PassThru
+[System.IO.File]::WriteAllText($pidFile, [string]$p.Id)
+```
+
+不要靠删 SQLite 停止服务。机器关机或休眠会停止轮询；跨日结算前须重新核对进程、数据库检查点及日志。本机进程存活不等于结束聊天后我会主动跟进。
+
 前端开发服务：`npm --prefix frontend run dev -- --host 127.0.0.1`；在其终端 `Ctrl+C` 停止。浏览器用买家原 MetaMask 连接 Sepolia，用户本人解锁、批准连接和签名；投保 `approve` 仅 10 FDT。先测网络/地址显示、错链禁写、切账户重连、领 200 FDT 和回执。用户钱包的 EIP-7702 标记不能单独作为拒绝理由，以实际交互为准。
 
 ## 6. 真实航班门槛与结算
 
-在首份购买**之前**，独立保全官方逐班计划起飞/到达、航段、日期时区、运营号和代码共享、抓取时刻、原始资料及哈希。当前候选为 [10 月 29 日 SQ898](phase3-sq898-candidate-2026-10-29.md)，备选为 [10 月 30 日 SQ898](phase3-sq898-backup-2026-10-30.md)；都尚未登记。用户已接受 [教学条款 v1](teaching-terms-v1-2026-10-26.md)；销售还需同时满足：合约解除暂停、仅核准航班 `sellable=true`、前端销售开关为 true、当前链时间不晚于计划起飞前 24 小时。缺任一门槛则不买，不倒填。
+在首份购买**之前**，独立保全官方逐班计划起飞/到达、航段、日期时区、运营号和代码共享、抓取时刻、原始资料及哈希。[10 月 29 日 SQ898](phase3-sq898-candidate-2026-10-29.md) 已经独立授权、复核并登记为航班 1；[10 月 30 日 SQ898](phase3-sq898-backup-2026-10-30.md) 仅是未登记备选。用户已接受 [教学条款 v1](teaching-terms-v1-2026-10-26.md)；销售同时满足：合约解除暂停、仅核准航班 `sellable=true`、原机器前端开关为 true、当前链时间不晚于计划起飞前 24 小时。到截止即不可购买，不倒填。
 
 用户随后另行授权了**仅限 10 月 29 日 SQ898** 的两笔保险方交易：全局暂停保护下登记（该航班 `sellable=true`），再解除全局暂停；新增总预算 0.02 Sepolia ETH、每笔 maxFeePerGas 不超过 10 gwei。该授权不含备选航班，也不代替买家钱包签名。登记脚本先核对原计划文件哈希 `0x1075e638cf62a9b3499f8e5cd4b07fcfb90f927ee6c32f48c01c8e38490597cd`、链上角色/资金/暂停、链上时间距销售截止至少还有一小时，并重新从航空公司和香港机场官方页面抓取计划。任一来源改变或不可用即停。获得授权后的原工作目录命令：
 

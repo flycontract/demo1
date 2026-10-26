@@ -1,0 +1,63 @@
+{
+  "sourceCommit": "f334d033e486f979ad83655cf23473d7b4a8cde2",
+  "chainId": 11155111,
+  "deploymentInsurance": "0x0E8A379CA510aae2580a15A22F0A97BBF370da73",
+  "planSha256": "1075e638cf62a9b3499f8e5cd4b07fcfb90f927ee6c32f48c01c8e38490597cd",
+  "steps": {
+    "register": {
+      "nonce": 5,
+      "hash": "0x812e38053ca87f6be9df60b58e203ea73451a6b7dc65ed373e244a86f23e1522",
+      "receipt": {
+        "transactionHash": "0x812e38053ca87f6be9df60b58e203ea73451a6b7dc65ed373e244a86f23e1522",
+        "blockHash": "0x781602c249ef49fa362cc2bf14fffb085498d5c0977ef4b5749860036be42797",
+        "blockNumber": 11999073,
+        "status": 1,
+        "from": "0xDc376E51a2845A1FFac0A71952dAFd30f1d7F53a",
+        "to": "0x0E8A379CA510aae2580a15A22F0A97BBF370da73",
+        "gasUsed": "1690572",
+        "gasPrice": "100000024",
+        "transactionIndex": 112,
+        "logs": [
+          {
+            "address": "0x0E8A379CA510aae2580a15A22F0A97BBF370da73",
+            "topics": [
+              "0xd7ae78bb87a7411b7fe6c89426658bd3807d8555d609a7c081a4d3ee671a9c71",
+              "0x0000000000000000000000000000000000000000000000000000000000000001"
+            ],
+            "data": "0x00000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000006ae32604000000000000000000000000000000000000000000000000000000006ae35bec1075e638cf62a9b3499f8e5cd4b07fcfb90f927ee6c32f48c01c8e38490597cd00000000000000000000000000000000000000000000000000000000000000055351383938000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000353494e0000000000000000000000000000000000000000000000000000000000",
+            "index": 280
+          }
+        ]
+      }
+    },
+    "unpause": {
+      "nonce": 6,
+      "hash": "0x8bcff77b735a8e09115a2c2e7476ab4b82f4a081a0e75dac96c87d0bb4909593",
+      "receipt": {
+        "transactionHash": "0x8bcff77b735a8e09115a2c2e7476ab4b82f4a081a0e75dac96c87d0bb4909593",
+        "blockHash": "0x87b9b2be0f1d71e87ac31b05dacf3474f5429ce0546efb2d78b822ce611c29be",
+        "blockNumber": 11999074,
+        "status": 1,
+        "from": "0xDc376E51a2845A1FFac0A71952dAFd30f1d7F53a",
+        "to": "0x0E8A379CA510aae2580a15A22F0A97BBF370da73",
+        "gasUsed": "27562",
+        "gasPrice": "100000024",
+        "transactionIndex": 58,
+        "logs": []
+      }
+    }
+  },
+  "totalSpentWei": "171813441235216",
+  "airlineRecheck": {
+    "url": "https://www.singaporeair.com/en_UK/vn/flying-withus/cabins/business-class/business-class-4/",
+    "fetchedAt": "2026-10-26T16:06:15.695Z",
+    "sha256": "5409e1e37fe40409595577448f78b6eff8506f2d7d862f80ac90eab2b3702dce",
+    "path": "../evidence/phase3-sq898-airline-admission-2026-10-26T16-06-15-695Z.html"
+  },
+  "airportRecheck": {
+    "url": "https://www.hongkongairport.com/flightinfo-rest/rest/flights?date=2026-10-29&arrival=true&cargo=false&lang=en",
+    "fetchedAt": "2026-10-26T16:06:15.695Z",
+    "sha256": "eb0c39e98a649c5074d72fa0fa901d37e44b6cad2c215d4ccf4e0d28b9520b5b",
+    "path": "../evidence/phase3-sq898-hkia-admission-2026-10-26T16-06-15-695Z.json"
+  }
+}
