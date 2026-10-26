@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import type { JsonRpcProvider } from "ethers";
 import { POLICY_STATUS_LABELS } from "../lib/abi";
 import { errMsg, fmtToken, fmtUnixHkt, txLink } from "../lib/format";
 import { useChainNow, useWallet } from "../lib/wallet";
@@ -43,7 +44,17 @@ export default function MyPoliciesPage() {
     try {
       setLoadError(null);
       const filter = insuranceRead.filters.PolicyBought(null, address, null);
-      const events = await insuranceRead.queryFilter(filter);
+      const deployBlock = Number(import.meta.env.VITE_DEPLOY_BLOCK);
+      if (!Number.isSafeInteger(deployBlock) || deployBlock < 0) {
+        throw new Error("Insurance deployment block is missing or invalid.");
+      }
+      const provider = insuranceRead.runner as JsonRpcProvider;
+      const head = await provider.getBlockNumber();
+      const events = [];
+      for (let from = deployBlock; from <= head; from += 5_000) {
+        const to = Math.min(from + 4_999, head);
+        events.push(...await insuranceRead.queryFilter(filter, from, to));
+      }
       const ids = [...new Set(events.map((e) => Number((e as unknown as { args: { policyId: bigint } }).args.policyId)))];
 
       const out: PolicyRow[] = [];
@@ -203,7 +214,7 @@ export default function MyPoliciesPage() {
       {address &&
         (loading ? (
           <p className="empty">Loading your policies…</p>
-        ) : rows.length === 0 ? (
+        ) : loadError ? null : rows.length === 0 ? (
           <p className="empty">You haven't bought any policies yet.</p>
         ) : (
           <table>

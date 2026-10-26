@@ -1,6 +1,6 @@
 # COMP7610 阶段三操作与交接
 
-本文只针对 Sepolia（chainId 11155111）课程演示。FDT 是零小数位的测试代币，不是现金或真实保险。历史回放、合成模拟、未来航班事前投保必须分别标注。当前合约和账户的**实际状态**以 `deployments/sepolia.json`、`deployments/flight-sq898-2026-10-29.json` 及[阶段三B实时记录](phase3b-live-status-2026-10-27.md)为准。合约已部署；29 日 SQ898 已登记并开售，购买仍待买家签名及链上核验。
+本文只针对 Sepolia（chainId 11155111）课程演示。FDT 是零小数位的测试代币，不是现金或真实保险。历史回放、合成模拟、未来航班事前投保必须分别标注。当前合约和账户的**实际状态**以 `deployments/sepolia.json`、`deployments/flight-sq898-2026-10-29.json` 及[阶段三B实时记录](phase3b-live-status-2026-10-27.md)为准。合约已部署；29 日 SQ898 已登记并开售，买家已在截止前购买 Active 保单；真实航班结果等待到达后核验。
 
 ## 1. 身份与文件
 
@@ -49,7 +49,7 @@ npm run deploy:sepolia
 
 ## 4. 配置回填和只读验收
 
-已只修改原有文件中的确定字段，保留其余值和密钥：`oracle/.env` 的 `CONTRACT_ADDRESS`、`DEPLOY_BLOCK`；`frontend/.env` 的 `VITE_TOKEN_ADDRESS`、`VITE_INSURANCE_ADDRESS`。`DEPLOY_BLOCK` 等于保险合约**部署交易回执**的 blockNumber `11999004`。前端 RPC、chainId、数据库路径保持原值。接手时：
+已只修改原有文件中的确定字段，保留其余值和密钥：`oracle/.env` 的 `CONTRACT_ADDRESS`、`DEPLOY_BLOCK`；`frontend/.env` 的 `VITE_TOKEN_ADDRESS`、`VITE_INSURANCE_ADDRESS`、`VITE_DEPLOY_BLOCK`，以及经授权开售后的 `VITE_SALES_ENABLED`。`DEPLOY_BLOCK` 和 `VITE_DEPLOY_BLOCK` 都等于保险合约**部署交易回执**的 blockNumber `11999004`。前端 My Policies 从该块开始分段查事件，避免公共 RPC 拒绝创世以来的宽范围查询。前端 RPC、chainId、数据库路径保持原值。接手时：
 
 ```powershell
 npm run env:check -- deployed
@@ -109,7 +109,7 @@ npm run admit:sq898
 
 脚本将新抓原文保存到本机 `courses/COMP7610/evidence/`，将抓取时间与哈希、交易 intent/哈希/回执保存到 `deployments/flight-sq898-2026-10-29.json`。中断只用相同源码提交和相同参数续作；无哈希 intent 要人工核 nonce，不删除清单重新做。两笔完成、实际官网资料再次一致后，才将原 `frontend/.env` 的 `VITE_SALES_ENABLED` 改为 `true` 并重启前端。开售后若需立刻止售，保险方调用 `pause()` 或 `setFlightSellable(flightId,false)`；关前端按钮只是附加保护。
 
-购买后立即保存钱包交易和区块时间，核对用户 FDT -10、资金池 +10、赔付预留 +100、保单 Active。到计划香港到达日结束后再请求核验；官方历史数据若未发布、403、缺失、冲突或格式未知就保持 pending。预言机原始字节哈希只证明本地字节一致，不证明机场资料真实或以后不会更正。准点结案不赔也是有效真实闭环；本地模拟退款不能冒充真实七天退款。
+买家已亲自签署 [10 FDT 授权](https://sepolia.etherscan.io/tx/0xc4030032172a9a765d4258eaa219abd12f24cf14551e60d09a2c33d8fc5464ee)和[投保交易](https://sepolia.etherscan.io/tx/0x94d9f9ac3c45c5c6ade5ebd11125fa3f8ce622fc46e289addea50f3c4f56839b)。后者在 27 日 00:17:48 HKT 进入区块，比截止早 153432 秒；用户 FDT 200→190、资金池 10000→10010、赔付预留 0→100、保单 0 为 Active。完整读链证据见 `courses/COMP7610/evidence/phase3-sq898-purchase-chain-evidence-2026-10-27.json` 和[阶段三B记录](phase3b-live-status-2026-10-27.md)。到计划香港到达日结束后再请求核验；官方历史数据若未发布、403、缺失、冲突或格式未知就保持 pending。预言机原始字节哈希只证明本地字节一致，不证明机场资料真实或以后不会更正。准点结案不赔也是有效真实闭环；本地模拟退款不能冒充真实七天退款。
 
 ## 7. 合并与交接
 

@@ -57,8 +57,11 @@ try { execFileSync("git", ["check-ignore", "-q", relative(root, resolvedDb)], { 
 catch { failures.push("Oracle DB_PATH is not Git ignored"); }
 const tokenAddress = address(needed(front,"VITE_TOKEN_ADDRESS","frontend"),"token",true);
 const insuranceAddress = address(needed(front,"VITE_INSURANCE_ADDRESS","frontend"),"insurance",true);
+if (mode === "prepare" && front.VITE_DEPLOY_BLOCK !== "UNDEPLOYED") failures.push("Frontend deployment block must be pending during preparation");
+if (mode === "deployed") positiveInt(front.VITE_DEPLOY_BLOCK,"frontend.VITE_DEPLOY_BLOCK");
 const oracleContractAddress = address(needed(oracle,"CONTRACT_ADDRESS","oracle"),"oracle contract",true);
 if (insuranceAddress && oracleContractAddress && insuranceAddress !== oracleContractAddress) failures.push("Insurance addresses differ");
+if (mode === "deployed" && front.VITE_DEPLOY_BLOCK !== oracle.DEPLOY_BLOCK) failures.push("Frontend and oracle deployment blocks differ");
 if (existsSync(resolvedDb)) {
   try {
     const requireOracle = createRequire(resolve(root, "oracle/package.json"));
@@ -130,7 +133,8 @@ try {
         if (manifest.tokenAbiSha256 !== digest(JSON.stringify(tokenArtifact.abi)) ||
             manifest.insuranceAbiSha256 !== digest(JSON.stringify(insuranceArtifact.abi)))
           failures.push("Deployment ABI hash mismatch");
-        if (Number(oracle.DEPLOY_BLOCK) !== manifest.insuranceDeployBlock) failures.push("DEPLOY_BLOCK differs from manifest");
+        if (Number(oracle.DEPLOY_BLOCK) !== manifest.insuranceDeployBlock ||
+            Number(front.VITE_DEPLOY_BLOCK) !== manifest.insuranceDeployBlock) failures.push("DEPLOY_BLOCK differs from manifest");
         for (const name of ["tokenDeploy","insuranceDeploy","approve","fundPool","pause"]) {
           const saved = manifest.steps?.[name]?.receipt;
           if (!saved?.transactionHash) { failures.push(`${name}: public receipt missing`); continue; }

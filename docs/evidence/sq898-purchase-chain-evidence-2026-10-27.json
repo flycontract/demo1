@@ -1,0 +1,65 @@
+{
+  "network": {
+    "chainId": "11155111",
+    "token": "0x350B48d0BB1f44764b04155AC2E4970A339f66b7",
+    "insurance": "0x0E8A379CA510aae2580a15A22F0A97BBF370da73",
+    "buyer": "0x9208707E8d967365901b54249D335CAc5B10829c"
+  },
+  "approval": {
+    "hash": "0xc4030032172a9a765d4258eaa219abd12f24cf14551e60d09a2c33d8fc5464ee",
+    "block": 11999129,
+    "blockTimeUtc": "2026-10-26T16:17:24.000Z",
+    "status": 1,
+    "from": "0x9208707E8d967365901b54249D335CAc5B10829c",
+    "to": "0x350B48d0BB1f44764b04155AC2E4970A339f66b7",
+    "method": "approve",
+    "spender": "0x0E8A379CA510aae2580a15A22F0A97BBF370da73",
+    "amountFdt": "10"
+  },
+  "purchase": {
+    "hash": "0x94d9f9ac3c45c5c6ade5ebd11125fa3f8ce622fc46e289addea50f3c4f56839b",
+    "block": 11999131,
+    "blockTimeUtc": "2026-10-26T16:17:48.000Z",
+    "status": 1,
+    "from": "0x9208707E8d967365901b54249D335CAc5B10829c",
+    "to": "0x0E8A379CA510aae2580a15A22F0A97BBF370da73",
+    "method": "buyPolicy",
+    "flightId": "1",
+    "policyBoughtEvent": {
+      "policyId": "0",
+      "holder": "0x9208707E8d967365901b54249D335CAc5B10829c",
+      "flightId": "1"
+    }
+  },
+  "policy": {
+    "id": "0",
+    "holder": "0x9208707E8d967365901b54249D335CAc5B10829c",
+    "flightId": "1",
+    "requestId": "0",
+    "statusNumber": 0,
+    "status": "Active",
+    "policyCount": "1"
+  },
+  "stateBeforePurchase": {
+    "block": 11999130,
+    "buyerFdt": "200",
+    "poolFdt": "10000",
+    "reservedFdt": "0"
+  },
+  "stateAfterPurchase": {
+    "block": 11999131,
+    "buyerFdt": "190",
+    "poolFdt": "10010",
+    "reservedFdt": "100"
+  },
+  "cutoff": {
+    "scheduledDepartureUtc": "2026-10-29T10:55:00.000Z",
+    "lastPurchaseUtc": "2026-10-28T10:55:00.000Z",
+    "secondsBeforeCutoff": 153432
+  },
+  "screenshots": {
+    "beforePurchaseSha256": "f88cf06472d3529929e8ed43cd801e76985709952361193c5c9bd350439646e0",
+    "purchaseConfirmedSha256": "b49de622b15f08d3be73c1b0ec5ffc721ae26bc031c329286fc54ac99de8efd3",
+    "activePolicySha256": "7cf98f9ce91956f4b426fe7b6280614cc7bb9819c1585fb0676a700d8f94419d"
+  }
+}

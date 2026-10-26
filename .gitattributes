@@ -1,5 +1,6 @@
 docs/evidence/sq898-plan-input-2026-10-29.txt text eol=lf
 docs/evidence/sq898-plan-input-2026-10-30.txt text eol=lf
+docs/evidence/sq898-purchase-chain-evidence-2026-10-27.json text eol=lf
 frontend/src/lib/generatedInsuranceAbi.ts text eol=lf
 frontend/src/lib/generatedTokenAbi.ts text eol=lf
 oracle/src/generatedInsuranceAbi.ts text eol=lf

@@ -14,7 +14,7 @@ if (insurer.address === oracle.address) throw new Error("Account collision");
 const contents = [
   `SEPOLIA_RPC_URL=${rpc}\nDEPLOYER_PRIVATE_KEY=${insurer.privateKey}\nORACLE_ADDRESS=${oracle.address}\n`,
   `RPC_URL=${rpc}\nCHAIN_ID=11155111\nCONTRACT_ADDRESS=UNDEPLOYED\nDEPLOY_BLOCK=UNDEPLOYED\nORACLE_PRIVATE_KEY=${oracle.privateKey}\nDB_PATH=./oracle-sepolia.sqlite\nPOLL_INTERVAL_MS=60000\nHTTP_TIMEOUT_MS=20000\nMAX_DAILY_REFRESH=3\nMIN_REFRESH_INTERVAL_MS=14400000\nCONFIRMATIONS=2\nEVENT_CHUNK_SIZE=500\nREORG_OVERLAP=12\n`,
-  `VITE_RPC_URL=${rpc}\nVITE_TOKEN_ADDRESS=UNDEPLOYED\nVITE_INSURANCE_ADDRESS=UNDEPLOYED\nVITE_CHAIN_ID=11155111\nVITE_CHAIN_NAME=Sepolia\nVITE_EXPLORER_URL=https://sepolia.etherscan.io\nVITE_SALES_ENABLED=false\n`,
+  `VITE_RPC_URL=${rpc}\nVITE_TOKEN_ADDRESS=UNDEPLOYED\nVITE_INSURANCE_ADDRESS=UNDEPLOYED\nVITE_DEPLOY_BLOCK=UNDEPLOYED\nVITE_CHAIN_ID=11155111\nVITE_CHAIN_NAME=Sepolia\nVITE_EXPLORER_URL=https://sepolia.etherscan.io\nVITE_SALES_ENABLED=false\n`,
 ];
 for (let i = 0; i < files.length; i++) {
   mkdirSync(dirname(files[i]), { recursive: true });

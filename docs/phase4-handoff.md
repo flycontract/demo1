@@ -1,10 +1,10 @@
 # Phase 4 final reproduction, video and merge handoff
 
-This is a checklist for the final COMP7610 submission due **8 November 2026**. The source branch is `origin/icn`; do not publish or push `main` until the final evidence and review are complete. On 27 October, `origin/main` was the initial commit and an ancestor of `origin/icn` (0 commits unique to main, 10 unique to icn at that checkpoint); recheck before merging.
+This is a checklist for the final COMP7610 submission due **8 November 2026**. The source branch is `origin/icn`; do not publish or push `main` until the final evidence and review are complete. On 27 October, `origin/main` was the initial commit and an ancestor of `origin/icn` (0 commits unique to main, 10 unique to icn before the final purchase update); recheck before merging.
 
 ## 1. Fix the final evidence boundary
 
-Read [stage 3A acceptance](phase3a-acceptance-2026-10-26.md), [stage 3B live status](phase3b-live-status-2026-10-27.md), [teaching terms](teaching-terms-v1-2026-10-26.md), the [public deployment manifest](../deployments/sepolia.json) and [SQ898 admission manifest](../deployments/flight-sq898-2026-10-29.json). Phase 3B is **complete only after** a timely buyer purchase and a real HKIA historical response have been matched, saved and settled (including a correct no-payout result). Before those events, label the result “pending”, never “real closed loop”. The 31337 E2E and CX636 historical replay are supporting tests, not substitutes.
+Read [stage 3A acceptance](phase3a-acceptance-2026-10-26.md), [stage 3B live status](phase3b-live-status-2026-10-27.md), [teaching terms](teaching-terms-v1-2026-10-26.md), the [public deployment manifest](../deployments/sepolia.json) and [SQ898 admission manifest](../deployments/flight-sq898-2026-10-29.json). The timely buyer purchase is complete; Phase 3B's **real settlement remains incomplete** until an HKIA historical response has been matched, saved and settled (including a correct no-payout result). Until then, label the result “pending”, never “real closed loop”. The 31337 E2E and CX636 historical replay are supporting tests, not substitutes.
 
 ## 2. Fresh clone on a genuinely separate computer
 
