@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { getAddress, isAddress } from "ethers";
 import hre from "hardhat";
 
 /**
@@ -7,14 +8,16 @@ import hre from "hardhat";
  * into oracle/.env and frontend/.env.
  *
  * Env: ORACLE_ADDRESS (the address oracle/.env's ORACLE_PRIVATE_KEY controls).
- * If unset, the deployer is used as a placeholder oracle -- fine for a first
- * smoke-test deploy, but you should setOracle() to the real oracle service's
- * address before relying on fulfillVerification from it.
+ * A dedicated oracle account is mandatory; an empty value is never accepted.
  */
 async function main() {
   const { ethers } = hre;
   const [deployer] = await ethers.getSigners();
-  const oracleAddress = process.env.ORACLE_ADDRESS ?? deployer.address;
+  const oracleRaw = process.env.ORACLE_ADDRESS?.trim() ?? "";
+  if (!isAddress(oracleRaw) || /^0x0{40}$/i.test(oracleRaw)) throw new Error("Valid nonzero ORACLE_ADDRESS required");
+  const oracleAddress = getAddress(oracleRaw);
+  if (oracleAddress === deployer.address) throw new Error("Oracle must be independent from deployer");
+  if ((await ethers.provider.getNetwork()).chainId !== 11155111n) throw new Error("Sepolia chain ID required");
   const initialFund = 10_000n;
 
   console.log(`Deploying with account ${deployer.address}`);
@@ -28,6 +31,9 @@ async function main() {
   const FlightDelayInsurance = await ethers.getContractFactory("FlightDelayInsurance");
   const insurance = await FlightDelayInsurance.deploy(await token.getAddress(), oracleAddress);
   await insurance.waitForDeployment();
+  const deploymentTx = insurance.deploymentTransaction();
+  const deploymentReceipt = deploymentTx && await deploymentTx.wait();
+  if (!deploymentReceipt || deploymentReceipt.status !== 1) throw new Error("Insurance deployment receipt missing or failed");
   const insuranceAddress = await insurance.getAddress();
   console.log(`FlightDelayInsurance deployed at ${insuranceAddress}`);
 
@@ -38,20 +44,24 @@ async function main() {
   console.log(`Funded pool with ${initialFund} FDT`);
 
   // insurance is already mined at this point (waitForDeployment resolved above).
-  const deployBlock = await ethers.provider.getBlockNumber();
+  const deployBlock = deploymentReceipt.blockNumber;
 
   console.log("\n--- paste into oracle/.env ---");
-  console.log(`RPC_URL=${process.env.SEPOLIA_RPC_URL ?? "<sepolia rpc url>"}`);
+  console.log("RPC_URL=<configured Sepolia RPC; value redacted>");
   console.log(`CONTRACT_ADDRESS=${insuranceAddress}`);
   console.log(`DEPLOY_BLOCK=${deployBlock}`);
 
   console.log("\n--- paste into frontend/.env ---");
-  console.log(`VITE_RPC_URL=${process.env.SEPOLIA_RPC_URL ?? "<sepolia rpc url>"}`);
+  console.log("VITE_RPC_URL=<configured Sepolia RPC; value redacted>");
   console.log(`VITE_TOKEN_ADDRESS=${await token.getAddress()}`);
   console.log(`VITE_INSURANCE_ADDRESS=${insuranceAddress}`);
 }
 
 main().catch((err) => {
-  console.error(err);
+  let message = err instanceof Error ? err.message : String(err);
+  for (const secret of [process.env.SEPOLIA_RPC_URL, process.env.DEPLOYER_PRIVATE_KEY]) {
+    if (secret) message = message.replaceAll(secret, "[redacted]");
+  }
+  console.error(`Deployment failed: ${message}`);
   process.exitCode = 1;
 });

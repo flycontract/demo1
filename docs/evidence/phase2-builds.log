@@ -1,0 +1,10 @@
+
+> flight-delay-insurance-dapp@1.0.0 compile
+> hardhat compile && node scripts/sync-abi.mjs --write
+
+Generating typings for: 2 artifacts in dir: typechain-types for target: ethers-v6
+Successfully generated 10 typings!
+Compiled 1 Solidity file successfully (evm target: paris).
+
+> flight-delay-insurance-dapp@1.0.0 abi:check
+> node scripts/sync-abi.mjs --check

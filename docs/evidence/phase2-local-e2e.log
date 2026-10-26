@@ -1,0 +1,16 @@
+
+> flight-delay-insurance-dapp@1.0.0 local:e2e
+> npm --prefix oracle run build && node scripts/run-local-e2e.mjs
+
+
+> flight-delay-oracle@1.0.0 build
+> tsc -p .
+
+historical: closed without payout, evidence and receipt verified
+simulated delay: paid 100, evidence and receipt verified
+simulated on-time: closed without payout, evidence and receipt verified
+simulated cancellation: paid 100, evidence and receipt verified
+simulated unknown: refunded 10 at deadline; no evidence or callback
+restart/replay: no extra fetch, callback, settlement or balance change
+LOCAL E2E PASS: chain 31337, isolated DB, final pool 9840 FDT, reserved 0 FDT
+Historical CX 636 uses HKIA 2026-10-25 raw response; its planned 00:10 is a demo assumption, not verified original schedule.

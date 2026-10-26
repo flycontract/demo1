@@ -1,0 +1,16 @@
+
+> flight-delay-insurance-dapp@1.0.0 env:check
+> node scripts/env-check.mjs prepare
+
+.env: present, Git ignored
+oracle/.env: present, Git ignored
+frontend/.env: present, Git ignored
+insurer public address: 0xDc376E51a2845A1FFac0A71952dAFd30f1d7F53a
+oracle public address: 0x3C65B6280BeCCdb01857B53579407Bf026B1F939
+token: pending deployment
+insurance: pending deployment
+oracle contract: pending deployment
+Oracle DB: new isolated path; scope will be bound on first start
+DEPLOY_BLOCK: pending deployment
+RPC chain ID: 11155111
+Mode prepare: PASS

@@ -10,10 +10,13 @@ typechain-types/
 # Oracle service
 oracle/oracle.sqlite
 oracle/oracle.sqlite-*
+oracle/*.sqlite
+oracle/*.sqlite-*
 oracle/dist/
 
 # Frontend
 frontend/dist/
+frontend/*.tsbuildinfo
 
 # Python
 .venv/

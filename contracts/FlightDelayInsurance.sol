@@ -25,8 +25,8 @@ contract FlightDelayInsurance {
     uint256 public constant PREMIUM            = 10;
     uint256 public constant PAYOUT              = 100;
     uint256 public constant WARNING_LINE        = 8_000;   // stop new sales below this balance
-    uint256 public constant SALE_CUTOFF         = 24 hours; // no sales within 24h of scheduled arrival
-    uint256 public constant DELAY_THRESHOLD_MIN = 120;       // arrival delay >= this pays out
+    uint256 public constant SALE_CUTOFF         = 24 hours; // measured from scheduled departure
+    uint256 public constant DELAY_THRESHOLD_SEC = 7200;
     uint256 public constant REPORT_TIMEOUT      = 7 days;    // refund if no final result by then
 
     bool public paused;
@@ -36,9 +36,28 @@ contract FlightDelayInsurance {
     struct Flight {
         string  flightNo;          // e.g. "CX 750"
         string  origin;            // origin airport, e.g. "BKK"
-        uint256 scheduledArrival;  // trusted plan time (unix seconds, UTC), fixed at registration
+        string  departureDate;     // YYYY-MM-DD at origin, part of the flight identity
+        uint256 scheduledDeparture; // UTC seconds, frozen with the plan evidence
+        uint256 scheduledArrival;   // UTC seconds, frozen with the plan evidence
+        uint256 earliestVerification; // midnight after scheduled HK arrival date
+        bytes32 planEvidenceHash;
+        string  planSourceUrl;
+        uint256 planFetchedAt;
         bool    sellable;          // insurer toggles off if data is incomplete/wrong
         bool    exists;
+    }
+
+    struct FlightRegistration {
+        string flightNo;
+        string origin;
+        string departureDate;
+        uint256 scheduledDeparture;
+        uint256 scheduledArrival;
+        bytes32 planEvidenceHash;
+        string planSourceUrl;
+        uint256 planFetchedAt;
+        string[] aliases;
+        bool sellable;
     }
 
     struct Policy {
@@ -66,6 +85,10 @@ contract FlightDelayInsurance {
 
     uint256 public flightCount;
     mapping(uint256 => Flight) public flights;
+    // Every operating or marketing number for the same origin-local departure
+    // date must be registered together. The insurer remains responsible for
+    // checking that the alias list really describes one aircraft movement.
+    mapping(bytes32 => uint256) public flightIdByAliasKey;
 
     Policy[] public policies;
     mapping(uint256 => mapping(address => bool)) public hasPolicyForFlight; // flightId => holder => bool
@@ -80,7 +103,7 @@ contract FlightDelayInsurance {
     // ---------------- events ----------------
     event PoolFunded(address indexed from, uint256 amount);
     event SurplusWithdrawn(address indexed to, uint256 amount);
-    event FlightRegistered(uint256 indexed flightId, string flightNo, string origin, uint256 scheduledArrival, bool sellable);
+    event FlightRegistered(uint256 indexed flightId, string flightNo, string origin, uint256 scheduledDeparture, uint256 scheduledArrival, bytes32 planEvidenceHash);
     event FlightSellableChanged(uint256 indexed flightId, bool sellable);
     event PolicyBought(uint256 indexed policyId, address indexed holder, uint256 indexed flightId);
     event VerificationRequested(uint256 indexed requestId, uint256 indexed flightId, uint256 indexed policyId, uint256 scheduledArrival);
@@ -99,6 +122,7 @@ contract FlightDelayInsurance {
     }
 
     constructor(address tokenAddress, address oracleAddress) {
+        require(tokenAddress != address(0) && oracleAddress != address(0), "zero protocol address");
         token = IERC20(tokenAddress);
         insurer = msg.sender;
         oracle = oracleAddress;
@@ -107,6 +131,7 @@ contract FlightDelayInsurance {
     // ---------------- insurer administration ----------------
 
     function setOracle(address newOracle) external onlyInsurer {
+        require(newOracle != address(0), "zero oracle address");
         oracle = newOracle;
     }
 
@@ -132,21 +157,43 @@ contract FlightDelayInsurance {
     ///         fixed here and never change after sales begin (PRD §4: "售出后不跟随
     ///         事后时刻表变化"); if the underlying data turns out wrong, pull the
     ///         flight from sale with setFlightSellable instead of editing it.
-    function registerFlight(
-        string calldata flightNo,
-        string calldata origin,
-        uint256 scheduledArrival,
-        bool sellable
-    ) external onlyInsurer returns (uint256 flightId) {
+    function registerFlight(FlightRegistration calldata registration) external onlyInsurer returns (uint256 flightId) {
+        require(registration.scheduledDeparture < registration.scheduledArrival, "invalid plan times");
+        require(bytes(registration.departureDate).length == 10, "invalid departure date");
+        require(registration.planEvidenceHash != bytes32(0) && bytes(registration.planSourceUrl).length > 0, "plan evidence required");
+        require(registration.planFetchedAt > 0 && registration.planFetchedAt <= block.timestamp, "invalid evidence time");
+        string memory normalizedOrigin = _normalize(registration.origin);
+        require(bytes(normalizedOrigin).length == 3, "invalid origin");
+        bytes32 primaryKey = _aliasKey(registration.flightNo, normalizedOrigin, registration.departureDate);
+        require(flightIdByAliasKey[primaryKey] == 0, "flight alias already registered");
+        for (uint256 i = 0; i < registration.aliases.length; i++) {
+            bytes32 key = _aliasKey(registration.aliases[i], normalizedOrigin, registration.departureDate);
+            require(key != primaryKey && flightIdByAliasKey[key] == 0, "flight alias already registered");
+            for (uint256 j = 0; j < i; j++) {
+                require(key != _aliasKey(registration.aliases[j], normalizedOrigin, registration.departureDate), "duplicate alias");
+            }
+        }
+        // Asia/Hong_Kong is UTC+8 without daylight-saving time.
+        uint256 earliest = ((registration.scheduledArrival + 8 hours) / 1 days) * 1 days + 1 days - 8 hours;
         flightId = ++flightCount;
         flights[flightId] = Flight({
-            flightNo: flightNo,
-            origin: origin,
-            scheduledArrival: scheduledArrival,
-            sellable: sellable,
+            flightNo: registration.flightNo,
+            origin: registration.origin,
+            departureDate: registration.departureDate,
+            scheduledDeparture: registration.scheduledDeparture,
+            scheduledArrival: registration.scheduledArrival,
+            earliestVerification: earliest,
+            planEvidenceHash: registration.planEvidenceHash,
+            planSourceUrl: registration.planSourceUrl,
+            planFetchedAt: registration.planFetchedAt,
+            sellable: registration.sellable,
             exists: true
         });
-        emit FlightRegistered(flightId, flightNo, origin, scheduledArrival, sellable);
+        flightIdByAliasKey[primaryKey] = flightId;
+        for (uint256 i = 0; i < registration.aliases.length; i++) {
+            flightIdByAliasKey[_aliasKey(registration.aliases[i], normalizedOrigin, registration.departureDate)] = flightId;
+        }
+        emit FlightRegistered(flightId, registration.flightNo, registration.origin, registration.scheduledDeparture, registration.scheduledArrival, registration.planEvidenceHash);
     }
 
     function setFlightSellable(uint256 flightId, bool sellable) external onlyInsurer {
@@ -162,7 +209,7 @@ contract FlightDelayInsurance {
         Flight storage f = flights[flightId];
         require(f.exists, "unknown flight");
         require(f.sellable, "flight not sellable");
-        require(block.timestamp + SALE_CUTOFF <= f.scheduledArrival, "sale cutoff passed");
+        require(block.timestamp + SALE_CUTOFF <= f.scheduledDeparture, "sale cutoff passed");
         require(!hasPolicyForFlight[flightId][msg.sender], "already insured this flight");
 
         uint256 balance = token.balanceOf(address(this));
@@ -198,6 +245,8 @@ contract FlightDelayInsurance {
             _settle(policyId);
             return;
         }
+        require(block.timestamp >= flights[flightId].earliestVerification, "verification not open");
+        require(block.timestamp < flights[flightId].scheduledArrival + REPORT_TIMEOUT, "report timeout passed");
 
         uint256 requestId = ++requestCount;
         verificationRequests[requestId] = VerificationRequest({
@@ -226,27 +275,30 @@ contract FlightDelayInsurance {
         uint256 requestId,
         bool cancelled,
         uint256 actualArrival,
-        uint256 delayMinutes,
         string calldata dataDate,
         bytes32 evidenceHash
     ) external onlyOracle {
         VerificationRequest storage req = verificationRequests[requestId];
         require(req.exists, "unknown request");
         require(!req.fulfilled, "already fulfilled");
-        req.fulfilled = true;
-
         uint256 flightId = req.flightId;
-        if (!flightResults[flightId].isFinal) {
-            flightResults[flightId] = FlightResult({
+        require(block.timestamp < flights[flightId].scheduledArrival + REPORT_TIMEOUT, "report timeout passed");
+        require(!flightResults[flightId].isFinal, "flight result already final");
+        require(bytes(dataDate).length == 10 && evidenceHash != bytes32(0), "invalid evidence");
+        require(cancelled ? actualArrival == 0 : actualArrival > 0, "invalid actual arrival");
+        req.fulfilled = true;
+        uint256 scheduledArrival = flights[flightId].scheduledArrival;
+        uint256 delayMinutes = cancelled || actualArrival <= scheduledArrival
+            ? 0 : (actualArrival - scheduledArrival) / 60;
+        flightResults[flightId] = FlightResult({
                 isFinal: true,
                 cancelled: cancelled,
                 actualArrival: actualArrival,
-                delayMinutes: cancelled ? 0 : delayMinutes,
+                delayMinutes: delayMinutes,
                 dataDate: dataDate,
                 evidenceHash: evidenceHash
-            });
-            emit FlightResultRecorded(flightId, cancelled, actualArrival, delayMinutes, dataDate, evidenceHash);
-        }
+        });
+        emit FlightResultRecorded(flightId, cancelled, actualArrival, delayMinutes, dataDate, evidenceHash);
 
         Policy storage p = policies[req.policyId];
         if (p.status == PolicyStatus.Verifying) {
@@ -264,7 +316,7 @@ contract FlightDelayInsurance {
         require(p.holder == msg.sender, "not policy holder");
         require(p.status == PolicyStatus.Active || p.status == PolicyStatus.Verifying, "policy already closed");
         require(!flightResults[p.flightId].isFinal, "final result already available: use settlePolicy");
-        require(block.timestamp > flights[p.flightId].scheduledArrival + REPORT_TIMEOUT, "not past report timeout");
+        require(block.timestamp >= flights[p.flightId].scheduledArrival + REPORT_TIMEOUT, "not past report timeout");
 
         p.status = PolicyStatus.Refunded;
         reservedPayouts -= PAYOUT;
@@ -286,7 +338,8 @@ contract FlightDelayInsurance {
         if (r.cancelled) {
             amount = PAYOUT;
             reason = "cancelled: payout";
-        } else if (r.delayMinutes >= DELAY_THRESHOLD_MIN) {
+        } else if (r.actualArrival > flights[p.flightId].scheduledArrival &&
+                   r.actualArrival - flights[p.flightId].scheduledArrival >= DELAY_THRESHOLD_SEC) {
             amount = PAYOUT;
             reason = "delayed: payout";
         } else {
@@ -309,5 +362,28 @@ contract FlightDelayInsurance {
 
     function poolBalance() external view returns (uint256) {
         return token.balanceOf(address(this));
+    }
+
+    function _aliasKey(string memory number, string memory normalizedOrigin, string memory departureDate)
+        internal pure returns (bytes32)
+    {
+        return keccak256(abi.encode(_normalize(number), normalizedOrigin, departureDate));
+    }
+
+    function _normalize(string memory value) internal pure returns (string memory) {
+        bytes memory input = bytes(value);
+        bytes memory output = new bytes(input.length);
+        uint256 length;
+        for (uint256 i = 0; i < input.length; i++) {
+            bytes1 c = input[i];
+            if (c == 0x20 || c == 0x09) continue;
+            if (c >= 0x61 && c <= 0x7a) c = bytes1(uint8(c) - 32);
+            require((c >= 0x41 && c <= 0x5a) || (c >= 0x30 && c <= 0x39), "invalid flight identity");
+            output[length++] = c;
+        }
+        require(length > 0, "empty flight identity");
+        bytes memory result = new bytes(length);
+        for (uint256 i = 0; i < length; i++) result[i] = output[i];
+        return string(result);
     }
 }

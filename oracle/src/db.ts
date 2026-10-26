@@ -43,7 +43,9 @@ export function openDb(path: string) {
     CREATE TABLE IF NOT EXISTS hk_cache (
       record_date    TEXT PRIMARY KEY,
       raw_json       TEXT NOT NULL,
+      raw_bytes      BLOB,
       fetched_at     INTEGER NOT NULL,
+      last_attempt_at INTEGER NOT NULL,
       refresh_day    TEXT NOT NULL,
       refresh_count  INTEGER NOT NULL
     );
@@ -54,18 +56,39 @@ export function openDb(path: string) {
       record_date        TEXT NOT NULL,
       source_url         TEXT NOT NULL,
       fetched_at         INTEGER NOT NULL,
+      raw_bytes          BLOB NOT NULL,
+      raw_sha256         TEXT NOT NULL,
       matched_record_json TEXT NOT NULL,
       parsed_version      TEXT NOT NULL,
       evidence_hash        TEXT NOT NULL,
       final_status          TEXT NOT NULL,
       actual_arrival         INTEGER NOT NULL,
-      delay_minutes           INTEGER NOT NULL,
-      submitted_at             INTEGER NOT NULL,
-      tx_hash                   TEXT NOT NULL
+      delay_seconds           INTEGER NOT NULL,
+      submit_status           TEXT NOT NULL,
+      submitted_at             INTEGER,
+      confirmed_at             INTEGER,
+      tx_hash                   TEXT,
+      last_error                TEXT
     );
   `);
 
+  const cacheColumns = db.prepare("PRAGMA table_info(hk_cache)").all() as { name: string }[];
+  const evidenceColumns = db.prepare("PRAGMA table_info(evidence)").all() as { name: string }[];
+  if (!cacheColumns.some((column) => column.name === "raw_bytes") ||
+      !evidenceColumns.some((column) => column.name === "submit_status")) {
+    db.close();
+    throw new Error("Legacy oracle DB schema: create a new isolated DB_PATH; existing data was not changed");
+  }
+
   return db;
+}
+
+/** A DB belongs to exactly one chain and one insurance contract. */
+export function bindDb(db: Database.Database, chainId: bigint, contractAddress: string) {
+  const expected = `${chainId}:${contractAddress.toLowerCase()}`;
+  const row = db.prepare("SELECT value FROM meta WHERE key = 'scope'").get() as { value: string } | undefined;
+  if (row && row.value !== expected) throw new Error(`Oracle DB scope mismatch (expected ${expected}, found ${row.value})`);
+  if (!row) db.prepare("INSERT INTO meta (key, value) VALUES ('scope', ?)").run(expected);
 }
 
 export function getLastProcessedBlock(db: Database.Database): number | null {
@@ -135,26 +158,60 @@ export function saveEvidence(
     recordDate: string;
     sourceUrl: string;
     fetchedAt: number;
+    rawBytes: Buffer;
+    rawSha256: string;
     matchedRecordJson: string;
     parsedVersion: string;
     evidenceHash: string;
     finalStatus: string;
     actualArrival: number;
-    delayMinutes: number;
-    txHash: string;
+    delaySeconds: number;
   }
 ) {
   db.prepare(
-    `INSERT INTO evidence (flight_id, request_id, record_date, source_url, fetched_at, matched_record_json, parsed_version, evidence_hash, final_status, actual_arrival, delay_minutes, submitted_at, tx_hash)
-     VALUES (@flightId, @requestId, @recordDate, @sourceUrl, @fetchedAt, @matchedRecordJson, @parsedVersion, @evidenceHash, @finalStatus, @actualArrival, @delayMinutes, @submittedAt, @txHash)
-     ON CONFLICT(flight_id) DO UPDATE SET
-       request_id = excluded.request_id, record_date = excluded.record_date,
-       source_url = excluded.source_url, fetched_at = excluded.fetched_at,
-       matched_record_json = excluded.matched_record_json, parsed_version = excluded.parsed_version,
-       evidence_hash = excluded.evidence_hash, final_status = excluded.final_status,
-       actual_arrival = excluded.actual_arrival, delay_minutes = excluded.delay_minutes,
-       submitted_at = excluded.submitted_at, tx_hash = excluded.tx_hash`
-  ).run({ ...row, submittedAt: Math.floor(Date.now() / 1000) });
+    `INSERT INTO evidence (flight_id, request_id, record_date, source_url, fetched_at, raw_bytes, raw_sha256, matched_record_json, parsed_version, evidence_hash, final_status, actual_arrival, delay_seconds, submit_status)
+     VALUES (@flightId, @requestId, @recordDate, @sourceUrl, @fetchedAt, @rawBytes, @rawSha256, @matchedRecordJson, @parsedVersion, @evidenceHash, @finalStatus, @actualArrival, @delaySeconds, 'prepared')
+     ON CONFLICT(flight_id) DO NOTHING`
+  ).run(row);
+}
+
+export interface EvidenceRow {
+  flight_id: number;
+  request_id: number;
+  record_date: string;
+  source_url: string;
+  fetched_at: number;
+  raw_bytes: Buffer;
+  raw_sha256: string;
+  matched_record_json: string;
+  parsed_version: string;
+  evidence_hash: string;
+  final_status: string;
+  actual_arrival: number;
+  delay_seconds: number;
+  submit_status: "prepared" | "submitted" | "confirmed";
+  submitted_at: number | null;
+  confirmed_at: number | null;
+  tx_hash: string | null;
+  last_error: string | null;
+}
+
+export function getEvidence(db: Database.Database, flightId: number): EvidenceRow | undefined {
+  return db.prepare("SELECT * FROM evidence WHERE flight_id = ?").get(flightId) as EvidenceRow | undefined;
+}
+
+export function markEvidenceSubmitted(db: Database.Database, flightId: number, txHash: string) {
+  db.prepare("UPDATE evidence SET submit_status = 'submitted', tx_hash = ?, submitted_at = ?, last_error = NULL WHERE flight_id = ?")
+    .run(txHash, Math.floor(Date.now() / 1000), flightId);
+}
+
+export function markEvidenceConfirmed(db: Database.Database, flightId: number) {
+  db.prepare("UPDATE evidence SET submit_status = 'confirmed', confirmed_at = ?, last_error = NULL WHERE flight_id = ?")
+    .run(Math.floor(Date.now() / 1000), flightId);
+}
+
+export function markEvidenceError(db: Database.Database, flightId: number, error: string) {
+  db.prepare("UPDATE evidence SET last_error = ? WHERE flight_id = ?").run(error, flightId);
 }
 
 export function getCachedDay(db: Database.Database, recordDate: string) {
@@ -162,7 +219,9 @@ export function getCachedDay(db: Database.Database, recordDate: string) {
     | {
         record_date: string;
         raw_json: string;
+        raw_bytes: Buffer | null;
         fetched_at: number;
+        last_attempt_at: number;
         refresh_day: string;
         refresh_count: number;
       }
@@ -173,14 +232,18 @@ export function saveCachedDay(
   db: Database.Database,
   recordDate: string,
   rawJson: string,
+  rawBytes: Buffer | null,
+  fetchedAt: number,
+  lastAttemptAt: number,
   refreshDay: string,
   refreshCount: number
 ) {
   db.prepare(
-    `INSERT INTO hk_cache (record_date, raw_json, fetched_at, refresh_day, refresh_count)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO hk_cache (record_date, raw_json, raw_bytes, fetched_at, last_attempt_at, refresh_day, refresh_count)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(record_date) DO UPDATE SET
        raw_json = excluded.raw_json, fetched_at = excluded.fetched_at,
+       raw_bytes = excluded.raw_bytes, last_attempt_at = excluded.last_attempt_at,
        refresh_day = excluded.refresh_day, refresh_count = excluded.refresh_count`
-  ).run(recordDate, rawJson, Math.floor(Date.now() / 1000), refreshDay, refreshCount);
+  ).run(recordDate, rawJson, rawBytes, fetchedAt, lastAttemptAt, refreshDay, refreshCount);
 }

@@ -1,0 +1,13 @@
+
+> flight-delay-frontend@1.0.0 build
+> tsc -b && vite build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 195 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.43 kB │ gzip:   0.29 kB
+dist/assets/index-Cf4lj2x4.css    2.43 kB │ gzip:   0.96 kB
+dist/assets/index-kwbblZPA.js   484.20 kB │ gzip: 165.48 kB
+✓ built in 1.33s

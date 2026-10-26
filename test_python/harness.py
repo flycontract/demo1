@@ -6,6 +6,7 @@ py-solc-x. Used by run_tests.py (acceptance checks) and demo.py (readable e2e ru
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import solcx
@@ -79,9 +80,16 @@ class Chain:
         self.token.functions.approve(self.insurance.address, amount).transact({"from": self.insurer})
         self.insurance.functions.fundPool(amount).transact({"from": self.insurer})
 
-    def register_flight(self, flight_no: str, origin: str, scheduled_arrival: int, sellable: bool = True) -> int:
+    def register_flight(self, flight_no: str, origin: str, scheduled_arrival: int, sellable: bool = True,
+                        scheduled_departure: int | None = None, departure_date: str | None = None,
+                        aliases: list[str] | None = None) -> int:
+        departure = scheduled_departure if scheduled_departure is not None else scheduled_arrival - 4 * 3600
+        date = departure_date or datetime.fromtimestamp(departure, timezone.utc).strftime("%Y-%m-%d")
+        evidence_hash = Web3.keccak(text=f"plan:{flight_no}:{origin}:{departure}:{scheduled_arrival}")
+        registration = (flight_no, origin, date, departure, scheduled_arrival,
+                        evidence_hash, "https://example.test/official-plan", self.now(), aliases or [], sellable)
         receipt = self.w3.eth.wait_for_transaction_receipt(
-            self.insurance.functions.registerFlight(flight_no, origin, scheduled_arrival, sellable)
+            self.insurance.functions.registerFlight(registration)
             .transact({"from": self.insurer})
         )
         ev = self.insurance.events.FlightRegistered().process_receipt(receipt)[0]["args"]
@@ -97,16 +105,20 @@ class Chain:
         return ev["policyId"]
 
     def request_verification(self, caller: str, policy_id: int):
+        flight_id = self.insurance.functions.policies(policy_id).call()[1]
+        earliest = self.insurance.functions.flights(flight_id).call()[5]
+        if self.now() < earliest:
+            self.time_travel(earliest)
         return self.w3.eth.wait_for_transaction_receipt(
             self.insurance.functions.requestVerification(policy_id).transact({"from": caller})
         )
 
-    def fulfill(self, request_id: int, cancelled: bool, actual_arrival: int, delay_minutes: int,
+    def fulfill(self, request_id: int, cancelled: bool, actual_arrival: int, delay_minutes: int = 0,
                 data_date: str = "2026-09-21", evidence_hash: bytes | None = None):
         evidence_hash = evidence_hash or Web3.keccak(text=f"req-{request_id}")
         return self.w3.eth.wait_for_transaction_receipt(
             self.insurance.functions.fulfillVerification(
-                request_id, cancelled, actual_arrival, delay_minutes, data_date, evidence_hash
+                request_id, cancelled, actual_arrival, data_date, evidence_hash
             ).transact({"from": self.oracle})
         )
 

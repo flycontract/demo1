@@ -1,10 +1,10 @@
-import { BrowserProvider, Contract, JsonRpcProvider, JsonRpcSigner } from "ethers";
+import { BrowserProvider, Contract, JsonRpcProvider, JsonRpcSigner, isAddress } from "ethers";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { DEMO_TOKEN_ABI, FLIGHT_DELAY_INSURANCE_ABI } from "./abi";
 
 declare global {
   interface Window {
-    ethereum?: import("ethers").Eip1193Provider & { on?: (event: string, cb: (...args: unknown[]) => void) => void };
+    ethereum?: import("ethers").Eip1193Provider & { on?: (event: string, cb: (...args: unknown[]) => void) => void; removeListener?: (event: string, cb: (...args: unknown[]) => void) => void };
   }
 }
 
@@ -27,11 +27,17 @@ interface WalletState {
   /** Read-only contracts that work before a wallet is connected. */
   tokenRead: Contract;
   insuranceRead: Contract;
+  canWrite: boolean;
+  configured: boolean;
+  requireWritable: () => Promise<void>;
 }
 
 const readOnlyProvider = new JsonRpcProvider(import.meta.env.VITE_RPC_URL as string);
-const tokenReadOnly = new Contract(TOKEN_ADDRESS, DEMO_TOKEN_ABI, readOnlyProvider);
-const insuranceReadOnly = new Contract(INSURANCE_ADDRESS, FLIGHT_DELAY_INSURANCE_ABI, readOnlyProvider);
+const deployed = isAddress(TOKEN_ADDRESS) && isAddress(INSURANCE_ADDRESS) &&
+  TOKEN_ADDRESS !== "0x0000000000000000000000000000000000000000" &&
+  INSURANCE_ADDRESS !== "0x0000000000000000000000000000000000000000";
+const tokenReadOnly = new Contract(deployed ? TOKEN_ADDRESS : "0x0000000000000000000000000000000000000001", DEMO_TOKEN_ABI, readOnlyProvider);
+const insuranceReadOnly = new Contract(deployed ? INSURANCE_ADDRESS : "0x0000000000000000000000000000000000000001", FLIGHT_DELAY_INSURANCE_ABI, readOnlyProvider);
 
 /**
  * EIP-3085 / EIP-3326 params for the expected chain. `blockExplorerUrls` is
@@ -72,6 +78,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const eth = window.ethereum;
+    if (!eth) return;
+    const changed = () => { setSigner(null); setAddress(null); setChainId(null); setError("Wallet changed. Reconnect before sending a transaction."); };
+    eth.on?.("accountsChanged", changed);
+    eth.on?.("chainChanged", changed);
+    return () => { eth.removeListener?.("accountsChanged", changed); eth.removeListener?.("chainChanged", changed); };
+  }, []);
+
   const connect = useCallback(async () => {
     setError(null);
     if (!window.ethereum) {
@@ -87,8 +102,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setSigner(s);
       setAddress(await s.getAddress());
       setChainId(network.chainId);
-      window.ethereum.on?.("accountsChanged", () => window.location.reload());
-      window.ethereum.on?.("chainChanged", () => window.location.reload());
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -105,10 +118,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const token = useMemo(() => (signer ? new Contract(TOKEN_ADDRESS, DEMO_TOKEN_ABI, signer) : null), [signer]);
+  const canWrite = deployed && !!signer && !!address && chainId === EXPECTED_CHAIN_ID;
+  const requireWritable = useCallback(async () => {
+    if (!deployed) throw new Error("Contracts are not deployed or configured yet.");
+    if (!window.ethereum || !address || !signer) throw new Error("Connect your wallet before sending a transaction.");
+    const [chainHex, accounts] = await Promise.all([
+      window.ethereum.request({ method: "eth_chainId" }),
+      window.ethereum.request({ method: "eth_accounts" }),
+    ]);
+    if (BigInt(String(chainHex)) !== EXPECTED_CHAIN_ID) throw new Error(`Switch wallet to ${CHAIN_NAME}.`);
+    if (!Array.isArray(accounts) || !accounts.some((a) => String(a).toLowerCase() === address.toLowerCase()))
+      throw new Error("Wallet account changed. Reconnect first.");
+    if ((await readOnlyProvider.getNetwork()).chainId !== EXPECTED_CHAIN_ID) throw new Error("Read RPC is on the wrong chain.");
+  }, [address, signer]);
+  const token = useMemo(() => (canWrite ? new Contract(TOKEN_ADDRESS, DEMO_TOKEN_ABI, signer) : null), [canWrite, signer]);
   const insurance = useMemo(
-    () => (signer ? new Contract(INSURANCE_ADDRESS, FLIGHT_DELAY_INSURANCE_ABI, signer) : null),
-    [signer]
+    () => (canWrite ? new Contract(INSURANCE_ADDRESS, FLIGHT_DELAY_INSURANCE_ABI, signer) : null),
+    [canWrite, signer]
   );
 
   const value: WalletState = {
@@ -123,6 +149,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     insurance,
     tokenRead: tokenReadOnly,
     insuranceRead: insuranceReadOnly,
+    canWrite,
+    configured: deployed,
+    requireWritable,
   };
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }
@@ -144,23 +173,31 @@ export function isWrongNetwork(chainId: bigint | null): boolean {
  * local chain started in the past for a real-data replay (scripts/local-e2e.ts),
  * where the browser clock would wrongly report "Sales closed" -- and a skewed
  * browser clock could otherwise enable a transaction the contract will revert.
- * Returns null until the first block is read; callers fall back to the local clock.
+ * Returns null on stale or failed reads; callers must disable time-sensitive actions.
  */
 export function useChainNow(): number | null {
   const [chainNow, setChainNow] = useState<number | null>(null);
 
   useEffect(() => {
     let alive = true;
-    (async () => {
+    const update = async () => {
       try {
+        if (!deployed) { if (alive) setChainNow(null); return; }
+        if ((await readOnlyProvider.getNetwork()).chainId !== EXPECTED_CHAIN_ID) {
+          if (alive) setChainNow(null);
+          return;
+        }
         const block = await readOnlyProvider.getBlock("latest");
-        if (alive && block) setChainNow(block.timestamp);
+        if (alive) setChainNow(block?.timestamp ?? null);
       } catch {
-        // leave it null; the caller falls back to the browser clock
+        if (alive) setChainNow(null);
       }
-    })();
+    };
+    void update();
+    const timer = window.setInterval(() => void update(), 12_000);
     return () => {
       alive = false;
+      window.clearInterval(timer);
     };
   }, []);
 

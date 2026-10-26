@@ -10,6 +10,16 @@ export function fmtUnixUtc(ts: bigint | number): string {
   return new Date(n * 1000).toISOString().replace("T", " ").slice(0, 16) + " UTC";
 }
 
+export function fmtUnixHkt(ts: bigint | number): string {
+  if (Number(ts) === 0) return "—";
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(Number(ts) * 1000)) + " HKT";
+}
+
+export function txLink(hash: string): string | null {
+  const base = import.meta.env.VITE_EXPLORER_URL as string | undefined;
+  return base && /^https:\/\//.test(base) ? `${base.replace(/\/$/, "")}/tx/${hash}` : null;
+}
+
 export function fmtAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }

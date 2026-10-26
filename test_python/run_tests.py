@@ -134,7 +134,7 @@ def _settle_via_request(c: Chain, delay_minutes: int | None, cancelled: bool = F
     fid = c.register_flight("CX 750", "BKK", c.now() + 3 * 24 * 3600)
     buyer = c.users[0]
     pid = c.buy_policy(buyer, fid)
-    sched = c.insurance.functions.flights(fid).call()[2]
+    sched = c.insurance.functions.flights(fid).call()[4]
     c.time_travel(sched + 3600)
     receipt = c.request_verification(buyer, pid)
     req_id = c.request_id_of(receipt)
@@ -189,7 +189,7 @@ def test_unfulfilled_request_stays_verifying_not_auto_settled():
     fid = c.register_flight("CX 750", "BKK", c.now() + 3 * 24 * 3600)
     buyer = c.users[0]
     pid = c.buy_policy(buyer, fid)
-    sched = c.insurance.functions.flights(fid).call()[2]
+    sched = c.insurance.functions.flights(fid).call()[4]
     c.time_travel(sched + 3600)
     c.request_verification(buyer, pid)
     holder, flight_id, request_id, status = c.policy(pid)
@@ -209,7 +209,7 @@ def test_duplicate_fulfil_same_request_rejected():
     fid = c.register_flight("CX 750", "BKK", c.now() + 3 * 24 * 3600)
     buyer = c.users[0]
     pid = c.buy_policy(buyer, fid)
-    sched = c.insurance.functions.flights(fid).call()[2]
+    sched = c.insurance.functions.flights(fid).call()[4]
     c.time_travel(sched + 3600)
     receipt = c.request_verification(buyer, pid)
     req_id = c.request_id_of(receipt)
@@ -223,14 +223,14 @@ def test_only_oracle_can_fulfil():
     fid = c.register_flight("CX 750", "BKK", c.now() + 3 * 24 * 3600)
     buyer = c.users[0]
     pid = c.buy_policy(buyer, fid)
-    sched = c.insurance.functions.flights(fid).call()[2]
+    sched = c.insurance.functions.flights(fid).call()[4]
     c.time_travel(sched + 3600)
     receipt = c.request_verification(buyer, pid)
     req_id = c.request_id_of(receipt)
 
     def fulfil_as_stranger():
         c.w3.eth.wait_for_transaction_receipt(
-            c.insurance.functions.fulfillVerification(req_id, False, sched, 0, "2026-09-21", b"\x00" * 32)
+            c.insurance.functions.fulfillVerification(req_id, False, sched, "2026-09-21", b"\x00" * 32)
             .transact({"from": c.users[1]})
         )
     expect_revert(fulfil_as_stranger, "not oracle")
@@ -251,7 +251,7 @@ def test_refund_allowed_after_timeout_and_returns_premium():
     fid = c.register_flight("CX 750", "BKK", c.now() + 3 * 24 * 3600)
     buyer = c.users[0]
     pid = c.buy_policy(buyer, fid)
-    sched = c.insurance.functions.flights(fid).call()[2]
+    sched = c.insurance.functions.flights(fid).call()[4]
     c.time_travel(sched + REPORT_TIMEOUT + 1)
     c.refund_unresolved(buyer, pid)
     assert c.token.functions.balanceOf(buyer).call() == PREMIUM
@@ -271,12 +271,13 @@ def test_refund_blocked_once_final_result_exists_even_past_timeout():
     a, b = c.users[0], c.users[1]
     pid_a = c.buy_policy(a, fid)
     pid_b = c.buy_policy(b, fid)
-    sched = c.insurance.functions.flights(fid).call()[2]
+    sched = c.insurance.functions.flights(fid).call()[4]
     c.time_travel(sched + 3600)
     receipt = c.request_verification(a, pid_a)
     req_id = c.request_id_of(receipt)
+    c.time_travel(sched + REPORT_TIMEOUT - 10)
+    c.fulfill(req_id, False, sched + 130 * 60, 130)  # final result recorded before deadline
     c.time_travel(sched + REPORT_TIMEOUT + 1)
-    c.fulfill(req_id, False, sched + 130 * 60, 130)  # late, but settles A and caches the result
     expect_revert(lambda: c.refund_unresolved(b, pid_b), "use settlePolicy")
     c.settle_policy(b, pid_b)
     assert c.token.functions.balanceOf(b).call() == PAYOUT
@@ -285,15 +286,14 @@ def test_refund_blocked_once_final_result_exists_even_past_timeout():
 def test_late_fulfil_after_refund_does_not_double_pay():
     # Two buyers on the same flight: buyer A requests verification (oracle never
     # answers in time), buyer A refunds after the timeout. The oracle's answer
-    # then lands late for A's request — it must record the flight result (so
-    # buyer B can still settle) without re-paying or reverting on A's policy.
+    # then lands late for A's request — it must be rejected. B may also refund.
     c = Chain()
     c.fund_pool(INITIAL_POOL_FUND)
     fid = c.register_flight("CX 750", "BKK", c.now() + 3 * 24 * 3600)
     a, b = c.users[0], c.users[1]
     pid_a = c.buy_policy(a, fid)
     pid_b = c.buy_policy(b, fid)
-    sched = c.insurance.functions.flights(fid).call()[2]
+    sched = c.insurance.functions.flights(fid).call()[4]
     c.time_travel(sched + 3600)
     receipt = c.request_verification(a, pid_a)
     req_id = c.request_id_of(receipt)
@@ -302,13 +302,11 @@ def test_late_fulfil_after_refund_does_not_double_pay():
     c.refund_unresolved(a, pid_a)
     assert c.token.functions.balanceOf(a).call() == PREMIUM
 
-    fulfil_receipt = c.fulfill(req_id, False, sched + 130 * 60, 130)
-    settled_events = c.insurance.events.PolicySettled().process_receipt(fulfil_receipt)
-    assert len(settled_events) == 0, "the already-refunded policy must not be settled again"
-
-    # Flight result is now cached; buyer B settles independently and gets paid.
-    c.settle_policy(b, pid_b)
-    assert c.token.functions.balanceOf(b).call() == PAYOUT
+    expect_revert(lambda: c.fulfill(req_id, False, sched + 130 * 60, 130), "report timeout passed")
+    assert not c.insurance.functions.flightResults(fid).call()[0]
+    c.refund_unresolved(b, pid_b)
+    assert c.token.functions.balanceOf(b).call() == PREMIUM
+    assert c.reserved() == 0
 
 
 # --------------------------------------------------------------------------
@@ -322,7 +320,7 @@ def test_multiple_holders_same_flight_settle_independently():
     fid = c.register_flight("CX 750", "BKK", c.now() + 3 * 24 * 3600)
     a, b, d = c.users[0], c.users[1], c.users[2]
     pid_a, pid_b, pid_d = c.buy_policy(a, fid), c.buy_policy(b, fid), c.buy_policy(d, fid)
-    sched = c.insurance.functions.flights(fid).call()[2]
+    sched = c.insurance.functions.flights(fid).call()[4]
     c.time_travel(sched + 3600)
     receipt = c.request_verification(a, pid_a)  # only A triggers the oracle
     req_id = c.request_id_of(receipt)
@@ -343,8 +341,8 @@ def test_balance_below_warning_line_still_honours_existing_policy():
 
     pid_a = c.buy_policy(a, fid_a)
     pid_b = c.buy_policy(b, fid_b)
-    sched_a = c.insurance.functions.flights(fid_a).call()[2]
-    sched_b = c.insurance.functions.flights(fid_b).call()[2]
+    sched_a = c.insurance.functions.flights(fid_a).call()[4]
+    sched_b = c.insurance.functions.flights(fid_b).call()[4]
     c.time_travel(sched_a + 3600)
 
     receipt = c.request_verification(a, pid_a)
@@ -425,6 +423,97 @@ def test_faucet_grants_tokens_once_per_cooldown():
     expect_revert(lambda: c.token.functions.faucet().transact({"from": claimant}), "cooldown")
 
 
+def test_sale_cutoff_uses_departure_and_allows_exact_24h():
+    c = Chain()
+    c.fund_pool(INITIAL_POOL_FUND)
+    dep = c.now() + 3 * 24 * 3600
+    fid = c.register_flight("CX 750", "BKK", dep + 8 * 3600, scheduled_departure=dep)
+    buyer = c.users[0]
+    c.mint(buyer, PREMIUM)
+    c.token.functions.approve(c.insurance.address, PREMIUM).transact({"from": buyer})
+    cutoff = dep - SALE_CUTOFF
+    c.time_travel(cutoff - 1)
+    c.insurance.functions.buyPolicy(fid).transact({"from": buyer})  # mined exactly at cutoff
+    assert c.reserved() == PAYOUT
+
+
+def test_sale_rejected_after_departure_cutoff_even_when_arrival_far_away():
+    c = Chain()
+    c.fund_pool(INITIAL_POOL_FUND)
+    dep = c.now() + 3 * 24 * 3600
+    fid = c.register_flight("CX 750", "BKK", dep + 12 * 3600, scheduled_departure=dep)
+    buyer = c.users[0]
+    c.mint(buyer, PREMIUM)
+    c.token.functions.approve(c.insurance.address, PREMIUM).transact({"from": buyer})
+    c.time_travel(dep - SALE_CUTOFF)
+    expect_revert(lambda: c.insurance.functions.buyPolicy(fid).transact({"from": buyer}), "sale cutoff")
+
+
+def test_delay_seconds_7199_7200_7201():
+    for seconds, expected in ((7199, 0), (7200, PAYOUT), (7201, PAYOUT)):
+        c = Chain()
+        c.fund_pool(INITIAL_POOL_FUND)
+        fid = c.register_flight("CX 750", "BKK", c.now() + 3 * 24 * 3600)
+        buyer = c.users[0]
+        pid = c.buy_policy(buyer, fid)
+        sched = c.insurance.functions.flights(fid).call()[4]
+        receipt = c.request_verification(buyer, pid)
+        paid = c.fulfill(c.request_id_of(receipt), False, sched + seconds)
+        event = c.insurance.events.PolicySettled().process_receipt(paid)[0]["args"]
+        assert event["amountPaid"] == expected, (seconds, event)
+        assert c.reserved() == 0
+
+
+def test_request_not_open_before_hk_record_day_end():
+    c = Chain()
+    c.fund_pool(INITIAL_POOL_FUND)
+    fid = c.register_flight("CX 750", "BKK", c.now() + 3 * 24 * 3600)
+    pid = c.buy_policy(c.users[0], fid)
+    expect_revert(lambda: c.insurance.functions.requestVerification(pid).transact({"from": c.users[0]}),
+                  "verification not open")
+    receipt = c.request_verification(c.users[0], pid)
+    assert c.request_id_of(receipt) == 1
+
+
+def test_alias_registration_blocks_duplicate_real_flight():
+    c = Chain()
+    arr = c.now() + 3 * 24 * 3600
+    c.register_flight("CX 750", "BKK", arr, aliases=["AY 5000"])
+    expect_revert(lambda: c.register_flight("ay5000", "bkk", arr), "flight alias already registered")
+
+
+def test_callback_strict_deadline_and_refund_at_equal():
+    for offset, accepted in ((-1, True), (0, False), (1, False)):
+        c = Chain()
+        c.fund_pool(INITIAL_POOL_FUND)
+        fid = c.register_flight("CX 750", "BKK", c.now() + 3 * 24 * 3600)
+        buyer = c.users[0]
+        pid = c.buy_policy(buyer, fid)
+        sched = c.insurance.functions.flights(fid).call()[4]
+        req_id = c.request_id_of(c.request_verification(buyer, pid))
+        deadline = sched + REPORT_TIMEOUT
+        c.time_travel(deadline + offset - 1)
+        if accepted:
+            c.fulfill(req_id, False, sched + 7200)
+            assert c.insurance.functions.flightResults(fid).call()[0]
+        else:
+            expect_revert(lambda: c.fulfill(req_id, False, sched + 7200), "report timeout passed")
+            assert not c.insurance.functions.flightResults(fid).call()[0]
+            c.refund_unresolved(buyer, pid)
+            assert c.token.functions.balanceOf(buyer).call() == PREMIUM
+
+
+def test_invalid_arrival_and_evidence_rejected():
+    c = Chain()
+    c.fund_pool(INITIAL_POOL_FUND)
+    fid = c.register_flight("CX 750", "BKK", c.now() + 3 * 24 * 3600)
+    pid = c.buy_policy(c.users[0], fid)
+    req_id = c.request_id_of(c.request_verification(c.users[0], pid))
+    expect_revert(lambda: c.fulfill(req_id, False, 0), "invalid actual arrival")
+    expect_revert(lambda: c.fulfill(req_id, True, 1), "invalid actual arrival")
+    expect_revert(lambda: c.fulfill(req_id, False, c.now(), evidence_hash=b"\x00" * 32), "invalid evidence")
+
+
 ALL_TESTS = [
     test_buy_debits_premium_and_reserves_payout,
     test_buy_rejected_after_sale_cutoff,
@@ -450,6 +539,13 @@ ALL_TESTS = [
     test_withdraw_cannot_breach_warning_line_or_reserves,
     test_withdraw_blocked_by_reserves_even_above_warning_line,
     test_faucet_grants_tokens_once_per_cooldown,
+    test_sale_cutoff_uses_departure_and_allows_exact_24h,
+    test_sale_rejected_after_departure_cutoff_even_when_arrival_far_away,
+    test_delay_seconds_7199_7200_7201,
+    test_request_not_open_before_hk_record_day_end,
+    test_alias_registration_blocks_duplicate_real_flight,
+    test_callback_strict_deadline_and_refund_at_equal,
+    test_invalid_arrival_and_evidence_rejected,
 ]
 
 
