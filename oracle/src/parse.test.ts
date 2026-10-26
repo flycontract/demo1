@@ -20,15 +20,28 @@ test("parseStatus: cross-day 'At gate' with an explicit date wins over the group
   assert.equal(new Date((r.actualArrivalUtc ?? 0) * 1000).toISOString(), "2026-09-18T16:21:00.000Z");
 });
 
-test("parseStatus: 'Cancelled' is final regardless of trailing text/case", () => {
+test("parseStatus: only explicit 'Cancelled' is final, case-insensitively", () => {
   assert.equal(parseStatus("Cancelled", "2026-09-19").cancelled, true);
   assert.equal(parseStatus("cancelled", "2026-09-19").cancelled, true);
+  assert.equal(parseStatus("Cancelled - pending confirmation", "2026-09-19").final, false);
+  assert.equal(parseStatus("Cancelled?", "2026-09-19").final, false);
+});
+
+test("parseStatus: rejects malformed times, dates and unrecognised suffixes", () => {
+  for (const status of [
+    "At gate 24:00", "At gate 12:60", "At gate 12:00 (31/02/2026)",
+    "At gate 12:00 (29/02/2026)", "At gate 12:00 (01/01/2026) pending",
+  ]) assert.equal(parseStatus(status, "2026-09-19").final, false, status);
+  assert.equal(parseStatus("At gate 12:00", "2026-02-31").final, false);
+  assert.equal(parseStatus("At gate 12:00", "2026-09-19 pending").final, false);
+  assert.equal(parseStatus("At gate 12:00 (29/02/2028)", "2026-09-19").final, true);
 });
 
 test("parseStatus: statusCode is never consulted -- only the text matters, and unknown text is never final", () => {
   for (const status of ["Estimated 15:05", "Boarding", "Delayed", "", "Some new HKIA wording we've never seen"]) {
     assert.equal(parseStatus(status, "2026-09-19").final, false, status);
   }
+  assert.equal(parseStatus(null, "2026-09-19").final, false);
 });
 
 test("normalizeFlightNo: strips spaces and case so 'CX 750' matches 'CX750'", () => {

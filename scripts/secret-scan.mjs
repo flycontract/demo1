@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import dotenv from "dotenv";
@@ -11,7 +11,9 @@ const issues = [];
 for (const file of sensitive) if (files.includes(file)) issues.push(`${file}: included in deliverable file set`);
 const keys = [];
 for (const file of sensitive.slice(0, 2)) {
-  const values = dotenv.parse(readFileSync(resolve(root, file)));
+  const localPath = resolve(root, file);
+  if (!existsSync(localPath)) continue; // A fresh checkout has no private env files.
+  const values = dotenv.parse(readFileSync(localPath));
   for (const [key, value] of Object.entries(values)) if (/PRIVATE_KEY$/.test(key) && value) keys.push(value);
 }
 for (const file of files) {

@@ -5,7 +5,7 @@
  * Never trusts `statusCode`, which HKIA's own responses show as unreliable
  * (PRD §5.2: observed null on every sampled record).
  */
-export const PARSED_VERSION = "hk-parse-v1";
+export const PARSED_VERSION = "hk-parse-v2";
 
 export interface ParsedStatus {
   final: boolean;
@@ -14,8 +14,8 @@ export interface ParsedStatus {
   actualArrivalUtc?: number;
 }
 
-const AT_GATE_RE = /^at gate\s+(\d{2}):(\d{2})(?:\s*\((\d{2})\/(\d{2})\/(\d{4})\))?/i;
-const CANCELLED_RE = /^cancelled/i;
+const AT_GATE_RE = /^at gate\s+(\d{2}):(\d{2})(?:\s*\((\d{2})\/(\d{2})\/(\d{4})\))?$/i;
+const CANCELLED_RE = /^cancelled$/i;
 
 /**
  * @param status raw `status` string from the record, e.g. "At gate 17:20" or
@@ -24,7 +24,8 @@ const CANCELLED_RE = /^cancelled/i;
  *   returned under ("YYYY-MM-DD"), used as the HK-local date for a time-only
  *   "At gate HH:MM" status per PRD §5.3.3.
  */
-export function parseStatus(status: string, recordGroupDate: string): ParsedStatus {
+export function parseStatus(status: unknown, recordGroupDate: string): ParsedStatus {
+  if (typeof status !== "string") return { final: false, cancelled: false };
   const trimmed = status.trim();
 
   if (CANCELLED_RE.test(trimmed)) {
@@ -48,6 +49,13 @@ export function parseStatus(status: string, recordGroupDate: string): ParsedStat
 
 /** Hong Kong has no DST, so "local date + HH:MM" -> UTC is a fixed -8h shift. */
 function hkLocalToUtcSeconds(hkDate: string, hh: string, mm: string): number | null {
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(hkDate);
+  if (!dateMatch || Number(hh) > 23 || Number(mm) > 59) return null;
+  const [, year, month, day] = dateMatch;
+  const calendarDate = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (calendarDate.getUTCFullYear() !== Number(year) ||
+      calendarDate.getUTCMonth() + 1 !== Number(month) ||
+      calendarDate.getUTCDate() !== Number(day)) return null;
   const isoLocal = `${hkDate}T${hh}:${mm}:00+08:00`;
   const ms = Date.parse(isoLocal);
   if (Number.isNaN(ms)) return null;

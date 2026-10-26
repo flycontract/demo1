@@ -1,6 +1,6 @@
 # COMP7610 flight insurance teaching demo
 
-This branch implements phase two locally. **No Sepolia contracts have been deployed. Real sales are disabled.** The proposed payout metric is the airport's published **At gate** time versus an independently frozen official planned arrival, or explicit **Cancelled**. The user has not yet approved that metric. The historical API's `time` field is not proven to be an original future plan and must not be used as one in real underwriting.
+This branch implements phase two locally. **No Sepolia contracts have been deployed. Real sales are disabled.** The project owner delegated the teaching-demo rule choice; [terms v1](docs/teaching-terms-v1-2026-10-26.md) now uses the airport's published **At gate** time versus an independently frozen official planned arrival, or explicit **Cancelled**. The historical API's `time` field is not proven to be an original future plan and must not be used as one in real underwriting.
 
 ## Protocol implemented
 
@@ -11,7 +11,7 @@ This branch implements phase two locally. **No Sepolia contracts have been deplo
 
 ## Reproduce phase two with Node 22
 
-Run from this repository root. On Windows this work used `F:\Environment\Node\node-v22.23.2-win-x64` on `PATH`; a standard Node 22 installation works without that absolute path. Install from locks with `npm ci`, `npm --prefix oracle ci`, and `npm --prefix frontend ci`. Python contract tests require `py-solc-x`, `eth-tester`, `web3`, and `eth-account` in a venv and a local solc 0.8.24.
+Run from this repository root. On Windows this work used `F:\Environment\Node\node-v22.23.2-win-x64` on `PATH`; a standard Node 22 installation works without that absolute path. Install from locks with `npm ci`, `npm --prefix oracle ci`, and `npm --prefix frontend ci`. Python 3.11 contract tests use `test_python/requirements.txt` in a fresh venv (`python -m venv .venv`, then `.venv/Scripts/python -m pip install -r test_python/requirements.txt` on Windows) and solc 0.8.24, which py-solc-x downloads if missing. Install `py-evm` explicitly; the `eth-tester[py-evm]` extra can pull a Windows package requiring a C++ compiler.
 
 ```text
 npm run compile

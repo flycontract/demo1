@@ -1,0 +1,19 @@
+flight_no=SQ898
+operating_airline=Singapore Airlines
+origin=SIN
+destination=HKG
+origin_local_departure_date=2026-10-29
+scheduled_departure=2026-10-29T18:55:00+08:00
+scheduled_arrival=2026-10-29T22:45:00+08:00
+scheduled_departure_unix=1793271300
+scheduled_arrival_unix=1793285100
+airline_url=https://www.singaporeair.com/en_UK/vn/flying-withus/cabins/business-class/business-class-4/
+airline_fetched_utc=2026-10-26T10:41:28Z
+airline_raw_sha256=32b6ede16c821fc55a7384bbf30024a500140779d9164bafd25c572417e5b9d9
+airline_observation=SIN to HKG; SQ 898; 18:55-22:45; 2026-10-25 to 2027-03-27; Daily
+airport_url=https://www.hongkongairport.com/flightinfo-rest/rest/flights?date=2026-10-29&arrival=true&cargo=false&lang=en
+airport_fetched_utc=2026-10-26T10:41:45Z
+airport_raw_sha256=063d36246b2c511572a3090a2204e45c1106e9d5fd28f9f0630081e5cc5f2bf2
+airport_observation=2026-10-29; SQ898; SIN; 22:45 HKT; future status null
+codeshare_aliases_observed=none
+terms_version=teaching-terms-v1-2026-10-26

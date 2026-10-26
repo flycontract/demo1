@@ -126,10 +126,10 @@ export default function FlightsPage() {
     <div>
       <h1>Registered Flights</h1>
       <p className="subtitle">
-        Proposed teaching-demo terms awaiting approval: HKIA “At gate” versus frozen planned arrival; explicit cancellation also pays. One source can be late or corrected. Sales close 24h before scheduled departure. Premium {fmtToken(10)}, payout {fmtToken(100)} for ≥7200 seconds or cancellation.
+        Teaching-demo terms v1: HKIA “At gate” versus frozen official planned arrival; explicit cancellation also pays. One source can be late or corrected. Sales close 24h before scheduled departure. Premium {fmtToken(10)}, payout {fmtToken(100)} for ≥7200 seconds or cancellation. FDT has no cash value.
       </p>
       {!configured && <p className="status-msg error">Contracts are not deployed. Addresses are pending.</p>}
-      {!salesEnabled && <p className="status-msg error">Real sales are disabled while the proposed terms and evidence are awaiting approval.</p>}
+      {!salesEnabled && <p className="status-msg error">Sales are disabled until deployment and per-flight official plan evidence checks are complete.</p>}
       {now === null && configured && <p className="status-msg error">Chain time is unavailable; time-sensitive actions are disabled.</p>}
       {loadError && <p className="status-msg error">Flight read failed: {loadError}</p>}
 

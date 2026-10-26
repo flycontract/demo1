@@ -9,6 +9,7 @@
     "env:check": "node scripts/env-check.mjs",
     "env:prepare": "node scripts/prepare-env.mjs",
     "secret:scan": "node scripts/secret-scan.mjs",
+    "estimate:stage3": "node scripts/estimate-stage3.cjs",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
     "local:node": "hardhat node",
     "local:e2e": "npm --prefix oracle run build && node scripts/run-local-e2e.mjs"
