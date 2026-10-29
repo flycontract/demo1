@@ -1,6 +1,6 @@
-# Stage 3B real future-flight evidence — status on 27 October 2026 HKT
+# Stage 3B real future-flight evidence — 27 October 2026 HKT checkpoint
 
-**Current classification:** real future-flight plan, real Sepolia admission and a timely real buyer purchase are verified. The post-arrival result does not yet exist. This document is **not** a settlement acceptance report. Historical CX636 replay and synthetic 31337 outcomes remain separate local evidence.
+**Historical checkpoint:** real future-flight plan, real Sepolia admission and a timely real buyer purchase were verified as of 27 October. The post-arrival result did not yet exist **at this checkpoint**. [The 30 October real settlement acceptance](phase3b-real-settlement-2026-10-30.md) now records the official result and ClosedNoPay outcome. Historical CX636 replay and synthetic 31337 outcomes remain separate local evidence.
 
 ## Frozen plan and accepted teaching terms
 

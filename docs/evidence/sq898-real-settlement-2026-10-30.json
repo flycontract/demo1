@@ -1,0 +1,89 @@
+{
+  "classification": "Real future-flight Sepolia purchase and post-arrival official-data settlement; not historical replay or local simulation",
+  "chainId": 11155111,
+  "sourceCommitAtRequest": "e61122a8b0f3818812703b6e74997cea85a44818",
+  "buyer": "0x9208707E8d967365901b54249D335CAc5B10829c",
+  "oracle": "0x3C65B6280BeCCdb01857B53579407Bf026B1F939",
+  "insurance": "0x0E8A379CA510aae2580a15A22F0A97BBF370da73",
+  "token": "0x350B48d0BB1f44764b04155AC2E4970A339f66b7",
+  "flightId": 1,
+  "policyId": 0,
+  "requestId": 1,
+  "flightNo": "SQ898",
+  "origin": "SIN",
+  "arrivalRecordDateHkt": "2026-10-29",
+  "scheduledArrivalUtc": "2026-10-29T14:45:00Z",
+  "scheduledArrivalHkt": "2026-10-29T22:45:00+08:00",
+  "planEvidenceHash": "0x1075e638cf62a9b3499f8e5cd4b07fcfb90f927ee6c32f48c01c8e38490597cd",
+  "requestTransaction": {
+    "hash": "0x516d6204a1f866f0b8bebdd7f942411b01a5dc2e15410cfbfed5941156b58adc",
+    "from": "0x9208707E8d967365901b54249D335CAc5B10829c",
+    "blockNumber": 12021467,
+    "blockTimeUtc": "2026-10-29T19:00:24Z",
+    "status": 1,
+    "event": "VerificationRequested(1, 1, 0, 1793285100)"
+  },
+  "officialResponse": {
+    "url": "https://www.hongkongairport.com/flightinfo-rest/rest/flights/past?date=2026-10-29&arrival=true&cargo=false&lang=en",
+    "oracleFetchedAtUtc": "2026-10-29T19:01:25Z",
+    "rawFile": "sq898-hkia-history-2026-10-29.raw.json",
+    "rawBytes": 90789,
+    "rawSha256": "066736f2ae3e06929cf39b7480f1be1db243866d6762bf307a9d971896380ac8",
+    "rawKeccak256AndOnChainEvidenceHash": "0xaec8825c57f8001a60742bdbb7b36470f964fb5df103307c083509d1e778a011",
+    "parserVersion": "hk-parse-v2",
+    "matchedRecord": {
+      "time": "22:45",
+      "flight": [{ "no": "SQ 898", "airline": "SIA" }],
+      "status": "At gate 22:49",
+      "statusCode": null,
+      "origin": ["SIN"],
+      "baggage": "12",
+      "hall": "B",
+      "terminal": "",
+      "stand": "W67"
+    }
+  },
+  "parsedOutcome": {
+    "actualArrivalUtc": "2026-10-29T14:49:00Z",
+    "actualArrivalHkt": "2026-10-29T22:49:00+08:00",
+    "delaySeconds": 240,
+    "thresholdSeconds": 7200,
+    "cancelled": false,
+    "expectedSettlement": "ClosedNoPay"
+  },
+  "oracleCallbackTransaction": {
+    "hash": "0x8d008219af542b2bb89d64f2013793104d3116adff08f00f745423917f988292",
+    "from": "0x3C65B6280BeCCdb01857B53579407Bf026B1F939",
+    "blockNumber": 12021473,
+    "blockTimeUtc": "2026-10-29T19:01:36Z",
+    "status": 1,
+    "events": [
+      "FlightResultRecorded(1, false, 1793285340, 4, 2026-10-29, 0xaec8825c57f8001a60742bdbb7b36470f964fb5df103307c083509d1e778a011)",
+      "PolicySettled(0, buyer, 0, on time: no payout)"
+    ]
+  },
+  "finalReadback": {
+    "policyStatusNumber": 3,
+    "policyStatus": "ClosedNoPay",
+    "requestFulfilled": true,
+    "flightResultFinal": true,
+    "flightResultDelayMinutes": 4,
+    "buyerFdtBefore": 190,
+    "buyerFdtAfter": 190,
+    "poolFdtBefore": 10010,
+    "poolFdtAfter": 10010,
+    "reservedFdtBefore": 100,
+    "reservedFdtAfter": 0
+  },
+  "oracleDatabase": {
+    "requestStatus": "fulfilled",
+    "evidenceSubmitStatus": "confirmed",
+    "rawSha256RecomputedMatches": true,
+    "rawKeccak256RecomputedMatches": true
+  },
+  "limitations": [
+    "The hash binds archived bytes; it does not prove the airport source is truthful or immutable.",
+    "A later official correction cannot reverse the contract's one-time final settlement.",
+    "Browser wrong-network and account-switch acceptance checks remain open."
+  ]
+}

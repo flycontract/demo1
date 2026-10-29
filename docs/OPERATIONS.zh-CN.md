@@ -1,6 +1,6 @@
 # COMP7610 阶段三操作与交接
 
-本文只针对 Sepolia（chainId 11155111）课程演示。FDT 是零小数位的测试代币，不是现金或真实保险。历史回放、合成模拟、未来航班事前投保必须分别标注。当前合约和账户的**实际状态**以 `deployments/sepolia.json`、`deployments/flight-sq898-2026-10-29.json` 及[阶段三B实时记录](phase3b-live-status-2026-10-27.md)为准。合约已部署；29 日 SQ898 已登记并开售，买家已在截止前购买 Active 保单；真实航班结果等待到达后核验。
+本文只针对 Sepolia（chainId 11155111）课程演示。FDT 是零小数位的测试代币，不是现金或真实保险。历史回放、合成模拟、未来航班事前投保必须分别标注。部署与登记身份以 `deployments/sepolia.json`、`deployments/flight-sq898-2026-10-29.json` 为准；[27 日购买记录](phase3b-live-status-2026-10-27.md)是历史检查点，[30 日真实结算验收](phase3b-real-settlement-2026-10-30.md)是当前结果。SQ898 保单 0 已由官方历史 `At gate 22:49` 结果结为 ClosedNoPay，资金池 10010 FDT、预留 0 FDT。
 
 ## 1. 身份与文件
 
@@ -109,7 +109,7 @@ npm run admit:sq898
 
 脚本将新抓原文保存到本机 `courses/COMP7610/evidence/`，将抓取时间与哈希、交易 intent/哈希/回执保存到 `deployments/flight-sq898-2026-10-29.json`。中断只用相同源码提交和相同参数续作；无哈希 intent 要人工核 nonce，不删除清单重新做。两笔完成、实际官网资料再次一致后，才将原 `frontend/.env` 的 `VITE_SALES_ENABLED` 改为 `true` 并重启前端。开售后若需立刻止售，保险方调用 `pause()` 或 `setFlightSellable(flightId,false)`；关前端按钮只是附加保护。
 
-买家已亲自签署 [10 FDT 授权](https://sepolia.etherscan.io/tx/0xc4030032172a9a765d4258eaa219abd12f24cf14551e60d09a2c33d8fc5464ee)和[投保交易](https://sepolia.etherscan.io/tx/0x94d9f9ac3c45c5c6ade5ebd11125fa3f8ce622fc46e289addea50f3c4f56839b)。后者在 27 日 00:17:48 HKT 进入区块，比截止早 153432 秒；用户 FDT 200→190、资金池 10000→10010、赔付预留 0→100、保单 0 为 Active。完整读链证据见 `courses/COMP7610/evidence/phase3-sq898-purchase-chain-evidence-2026-10-27.json` 和[阶段三B记录](phase3b-live-status-2026-10-27.md)。到计划香港到达日结束后再请求核验；官方历史数据若未发布、403、缺失、冲突或格式未知就保持 pending。预言机原始字节哈希只证明本地字节一致，不证明机场资料真实或以后不会更正。准点结案不赔也是有效真实闭环；本地模拟退款不能冒充真实七天退款。
+买家已亲自签署 [10 FDT 授权](https://sepolia.etherscan.io/tx/0xc4030032172a9a765d4258eaa219abd12f24cf14551e60d09a2c33d8fc5464ee)和[投保交易](https://sepolia.etherscan.io/tx/0x94d9f9ac3c45c5c6ade5ebd11125fa3f8ce622fc46e289addea50f3c4f56839b)。后者在 27 日 00:17:48 HKT 进入区块，比截止早 153432 秒；用户 FDT 200→190、资金池 10000→10010、赔付预留 0→100、保单 0 曾为 Active。完整读链证据见 `courses/COMP7610/evidence/phase3-sq898-purchase-chain-evidence-2026-10-27.json` 和[购买记录](phase3b-live-status-2026-10-27.md)。30 日 03:00:24 HKT 的[核验请求](https://sepolia.etherscan.io/tx/0x516d6204a1f866f0b8bebdd7f942411b01a5dc2e15410cfbfed5941156b58adc)与 03:01:36 HKT 的[预言机回调](https://sepolia.etherscan.io/tx/0x8d008219af542b2bb89d64f2013793104d3116adff08f00f745423917f988292)均成功；官方 `At gate 22:49` 相对冻结计划晚 4 分钟，保单 0 已结为 ClosedNoPay，预留降为 0。原始数据、解析、回执与余额见[真实结算验收](phase3b-real-settlement-2026-10-30.md)。预言机原始字节哈希只证明本地字节一致，不证明机场资料真实或以后不会更正；本地模拟退款不能冒充真实七天退款。
 
 ## 7. 合并与交接
 
