@@ -1,5 +1,4 @@
 import type Database from "better-sqlite3";
-import { createHash } from "node:crypto";
 import { getCachedDay, saveCachedDay } from "./db.js";
 
 /**
@@ -33,8 +32,7 @@ export class HkApiError extends Error {
   }
 }
 
-export function buildUrl(recordDate: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(recordDate)) throw new HkApiError("Invalid record date", "parse");
+function buildUrl(recordDate: string): string {
   const url = new URL(BASE_URL);
   url.searchParams.set("date", recordDate);
   url.searchParams.set("arrival", "true");
@@ -43,13 +41,13 @@ export function buildUrl(recordDate: string): string {
   return url.toString();
 }
 
-async function fetchRaw(recordDate: string, timeoutMs: number, fetchImpl: typeof fetch): Promise<{ groups: HkDateGroup[]; rawBytes: Buffer }> {
+async function fetchRaw(recordDate: string, timeoutMs: number): Promise<HkDateGroup[]> {
   const url = buildUrl(recordDate);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
   try {
-    res = await fetchImpl(url, { signal: controller.signal });
+    res = await fetch(url, { signal: controller.signal });
   } catch (err) {
     if ((err as Error).name === "AbortError") {
       throw new HkApiError(`HKIA request timed out after ${timeoutMs}ms (date=${recordDate})`, "timeout");
@@ -64,24 +62,19 @@ async function fetchRaw(recordDate: string, timeoutMs: number, fetchImpl: typeof
   }
 
   let body: unknown;
-  let rawBytes: Buffer;
   try {
-    rawBytes = Buffer.from(await res.arrayBuffer());
-    body = JSON.parse(rawBytes.toString("utf8"));
+    body = await res.json();
   } catch (err) {
     throw new HkApiError(`HKIA response was not valid JSON: ${(err as Error).message}`, "parse");
   }
-  if (!Array.isArray(body) || !body.every((group) =>
-    group && typeof group.date === "string" && Array.isArray(group.list))) {
+  if (!Array.isArray(body)) {
     throw new HkApiError("HKIA response was not the expected array-of-date-groups shape", "parse");
   }
-  return { groups: body as HkDateGroup[], rawBytes };
+  return body as HkDateGroup[];
 }
 
-function hkDay(nowMs: number): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(new Date(nowMs));
+function todayStamp(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 /**
@@ -95,42 +88,29 @@ function hkDay(nowMs: number): string {
 export async function getPastFlights(
   db: Database.Database,
   recordDate: string,
-  opts: { timeoutMs: number; maxDailyRefresh: number; refreshIntervalMs: number; nowMs?: number; fetchImpl?: typeof fetch }
-): Promise<{ groups: HkDateGroup[]; sourceUrl: string; fetchedAt: number; rawBytes: Buffer; rawSha256: string; fromCache: boolean }> {
-  const nowMs = opts.nowMs ?? Date.now();
-  const nowSeconds = Math.floor(nowMs / 1000);
-  const today = hkDay(nowMs);
+  opts: { timeoutMs: number; maxDailyRefresh: number }
+): Promise<{ groups: HkDateGroup[]; sourceUrl: string; fetchedAt: number; fromCache: boolean }> {
+  const today = todayStamp();
   const cached = getCachedDay(db, recordDate);
   const sourceUrl = buildUrl(recordDate);
+
   const refreshCountToday = cached && cached.refresh_day === today ? cached.refresh_count : 0;
-  const lastAttemptToday = cached && cached.refresh_day === today ? cached.last_attempt_at : 0;
-  const canRefresh = refreshCountToday < opts.maxDailyRefresh &&
-    (!lastAttemptToday || nowMs - lastAttemptToday * 1000 >= opts.refreshIntervalMs);
-  const cachedResult = () => {
-    if (!cached?.raw_bytes || cached.fetched_at === 0) {
-      throw new HkApiError("HKIA data unavailable; waiting for next allowed refresh", "network");
-    }
-    return {
-      groups: JSON.parse(cached.raw_json) as HkDateGroup[], sourceUrl, fetchedAt: cached.fetched_at,
-      rawBytes: cached.raw_bytes, rawSha256: createHash("sha256").update(cached.raw_bytes).digest("hex"), fromCache: true,
-    };
-  };
-  if (!canRefresh) {
-    return cachedResult();
+  if (cached && refreshCountToday >= opts.maxDailyRefresh) {
+    return { groups: JSON.parse(cached.raw_json), sourceUrl, fetchedAt: cached.fetched_at, fromCache: true };
   }
 
   try {
-    const { groups, rawBytes } = await fetchRaw(recordDate, opts.timeoutMs, opts.fetchImpl ?? fetch);
-    saveCachedDay(db, recordDate, rawBytes.toString("utf8"), rawBytes, nowSeconds, nowSeconds, today, refreshCountToday + 1);
-    return {
-      groups, sourceUrl, fetchedAt: nowSeconds, rawBytes,
-      rawSha256: createHash("sha256").update(rawBytes).digest("hex"), fromCache: false,
-    };
+    const groups = await fetchRaw(recordDate, opts.timeoutMs);
+    saveCachedDay(db, recordDate, JSON.stringify(groups), today, refreshCountToday + 1);
+    return { groups, sourceUrl, fetchedAt: Math.floor(Date.now() / 1000), fromCache: false };
   } catch (err) {
-    // Count only actual HTTP attempts. Preserve the previous successful body's
-    // original fetched_at and bytes when an attempt fails.
-    saveCachedDay(db, recordDate, cached?.raw_json ?? "[]", cached?.raw_bytes ?? null,
-      cached?.fetched_at ?? 0, nowSeconds, today, refreshCountToday + 1);
+    // A failed fetch still burns one of today's refresh attempts for this
+    // date, so a persistently-broken endpoint can't be hammered forever.
+    if (cached) {
+      saveCachedDay(db, recordDate, cached.raw_json, today, refreshCountToday + 1);
+      throw err;
+    }
+    saveCachedDay(db, recordDate, "[]", today, refreshCountToday + 1);
     throw err;
   }
 }

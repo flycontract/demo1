@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import type { JsonRpcProvider } from "ethers";
 import { POLICY_STATUS_LABELS } from "../lib/abi";
-import { errMsg, fmtToken, fmtUnixHkt, txLink } from "../lib/format";
-import { useChainNow, useWallet } from "../lib/wallet";
+import { errMsg, fmtToken, fmtUnixUtc } from "../lib/format";
+import { useWallet } from "../lib/wallet";
 
 interface PolicyRow {
   id: number;
@@ -11,50 +10,34 @@ interface PolicyRow {
   flightNo: string;
   origin: string;
   scheduledArrival: number;
-  scheduledDeparture: number;
-  earliestVerification: number;
   resultFinal: boolean;
   resultCancelled: boolean;
   resultDelayMinutes: number;
   resultDataDate: string;
-  evidenceHash: string;
 }
 
-type Msg = { text: string; kind: "error" | "success"; hash?: string } | null;
+type Msg = { text: string; kind: "error" | "success" } | null;
 
 const PILL_CLASS = ["pill-active", "pill-verifying", "pill-paid", "pill-nopay", "pill-refunded"];
 
 export default function MyPoliciesPage() {
-  const { insuranceRead, insurance, address, canWrite, configured, requireWritable } = useWallet();
-  const chainNow = useChainNow();
+  const { insuranceRead, insurance, address } = useWallet();
   const [rows, setRows] = useState<PolicyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
   const [refresh, setRefresh] = useState(0);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!address || !configured) {
+    if (!address) {
       setRows([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      setLoadError(null);
       const filter = insuranceRead.filters.PolicyBought(null, address, null);
-      const deployBlock = Number(import.meta.env.VITE_DEPLOY_BLOCK);
-      if (!Number.isSafeInteger(deployBlock) || deployBlock < 0) {
-        throw new Error("Insurance deployment block is missing or invalid.");
-      }
-      const provider = insuranceRead.runner as JsonRpcProvider;
-      const head = await provider.getBlockNumber();
-      const events = [];
-      for (let from = deployBlock; from <= head; from += 5_000) {
-        const to = Math.min(from + 4_999, head);
-        events.push(...await insuranceRead.queryFilter(filter, from, to));
-      }
+      const events = await insuranceRead.queryFilter(filter);
       const ids = [...new Set(events.map((e) => Number((e as unknown as { args: { policyId: bigint } }).args.policyId)))];
 
       const out: PolicyRow[] = [];
@@ -70,37 +53,29 @@ export default function MyPoliciesPage() {
           flightNo: f.flightNo,
           origin: f.origin,
           scheduledArrival: Number(f.scheduledArrival),
-          scheduledDeparture: Number(f.scheduledDeparture),
-          earliestVerification: Number(f.earliestVerification),
           resultFinal: r.isFinal,
           resultCancelled: r.cancelled,
           resultDelayMinutes: Number(r.delayMinutes),
           resultDataDate: r.dataDate,
-          evidenceHash: r.evidenceHash,
         });
       }
       out.sort((a, b) => b.id - a.id);
       setRows(out);
-    } catch (err) {
-      setLoadError(errMsg(err)); setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [insuranceRead, address, configured]);
+  }, [insuranceRead, address]);
 
   useEffect(() => {
     load();
   }, [load, refresh]);
 
-  async function run(id: number, fn: () => Promise<{ hash: string; wait: () => Promise<unknown> }>, successText: string) {
+  async function run(id: number, fn: () => Promise<unknown>, successText: string) {
     setBusyId(id);
     setMsg(null);
     try {
-      await requireWritable();
-      const tx = await fn();
-      setMsg({ text: "Transaction pending on chain; a verification request is not a payout.", kind: "success", hash: tx.hash });
-      await tx.wait();
-      setMsg({ text: successText, kind: "success", hash: tx.hash });
+      await fn();
+      setMsg({ text: successText, kind: "success" });
       setRefresh((r) => r + 1);
     } catch (err) {
       setMsg({ text: errMsg(err), kind: "error" });
@@ -109,24 +84,27 @@ export default function MyPoliciesPage() {
     }
   }
 
-  const now = chainNow;
+  const now = Math.floor(Date.now() / 1000);
   const REPORT_TIMEOUT = 7 * 24 * 3600;
 
   function actionFor(row: PolicyRow) {
-    if (!insurance || !canWrite || now === null) return null;
+    if (!insurance) return null;
     if (row.status === 0) {
       // Active: request verification (settles immediately if a final result
       // is already cached for this flight; otherwise raises an oracle event).
-      const refundable = !row.resultFinal && now >= row.scheduledArrival + REPORT_TIMEOUT;
+      const refundable = !row.resultFinal && now > row.scheduledArrival + REPORT_TIMEOUT;
       return (
         <div style={{ display: "flex", gap: 8 }}>
           <button
-            disabled={busyId === row.id || now < row.earliestVerification || refundable}
+            disabled={busyId === row.id}
             onClick={() =>
               run(
                 row.id,
-                async () => insurance.requestVerification(row.id),
-                "Verification requested; waiting for oracle result."
+                async () => {
+                  const tx = await insurance.requestVerification(row.id);
+                  await tx.wait();
+                },
+                "Verification requested."
               )
             }
           >
@@ -140,7 +118,8 @@ export default function MyPoliciesPage() {
                 run(
                   row.id,
                   async () => {
-                  return insurance.refundUnresolved(row.id);
+                    const tx = await insurance.refundUnresolved(row.id);
+                    await tx.wait();
                   },
                   "Refunded."
                 )
@@ -163,7 +142,8 @@ export default function MyPoliciesPage() {
               run(
                 row.id,
                 async () => {
-                  return insurance.settlePolicy(row.id);
+                  const tx = await insurance.settlePolicy(row.id);
+                  await tx.wait();
                 },
                 "Settled."
               )
@@ -173,7 +153,7 @@ export default function MyPoliciesPage() {
           </button>
         );
       }
-      const refundable = now >= row.scheduledArrival + REPORT_TIMEOUT;
+      const refundable = now > row.scheduledArrival + REPORT_TIMEOUT;
       return (
         <div style={{ display: "flex", gap: 8 }}>
           <span className="status-msg">Waiting for the oracle…</span>
@@ -185,7 +165,8 @@ export default function MyPoliciesPage() {
                 run(
                   row.id,
                   async () => {
-                    return insurance.refundUnresolved(row.id);
+                    const tx = await insurance.refundUnresolved(row.id);
+                    await tx.wait();
                   },
                   "Refunded."
                 )
@@ -204,17 +185,14 @@ export default function MyPoliciesPage() {
     <div>
       <h1>My Policies</h1>
       <p className="subtitle">Policies bought by the connected wallet.</p>
-      {!configured && <p className="status-msg error">Contracts are not deployed.</p>}
-      {configured && chainNow === null && <p className="status-msg error">Chain time unavailable; actions disabled.</p>}
-      {loadError && <p className="status-msg error">Policy read failed: {loadError}</p>}
 
       {!address && <div className="card">Connect your wallet to see your policies.</div>}
-      {msg && <p className={`status-msg ${msg.kind}`}>{msg.text} {msg.hash && txLink(msg.hash) && <a href={txLink(msg.hash)!} target="_blank" rel="noreferrer">Transaction</a>}</p>}
+      {msg && <p className={`status-msg ${msg.kind}`}>{msg.text}</p>}
 
       {address &&
         (loading ? (
           <p className="empty">Loading your policies…</p>
-        ) : loadError ? null : rows.length === 0 ? (
+        ) : rows.length === 0 ? (
           <p className="empty">You haven't bought any policies yet.</p>
         ) : (
           <table>
@@ -233,7 +211,7 @@ export default function MyPoliciesPage() {
                   <td>
                     {row.flightNo} <span style={{ color: "#6b7099" }}>from {row.origin}</span>
                   </td>
-                  <td>Departure {fmtUnixHkt(row.scheduledDeparture)}<br />Arrival {fmtUnixHkt(row.scheduledArrival)}<br />Verify from {fmtUnixHkt(row.earliestVerification)}<br />Final result deadline {fmtUnixHkt(row.scheduledArrival + REPORT_TIMEOUT)}</td>
+                  <td>{fmtUnixUtc(row.scheduledArrival)}</td>
                   <td>
                     <span className={`pill ${PILL_CLASS[row.status]}`}>{POLICY_STATUS_LABELS[row.status]}</span>
                   </td>
@@ -242,8 +220,7 @@ export default function MyPoliciesPage() {
                       ? row.resultCancelled
                         ? `Cancelled (data date ${row.resultDataDate})`
                         : `Delay ${row.resultDelayMinutes} min (data date ${row.resultDataDate})`
-                      : row.status === 1 ? "Pending oracle; unknown is not on time" : "No final result"}
-                    {row.resultFinal && <><br />Evidence <code title={row.evidenceHash}>{row.evidenceHash.slice(0, 12)}…</code></>}
+                      : "—"}
                   </td>
                   <td>{actionFor(row)}</td>
                 </tr>

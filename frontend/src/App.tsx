@@ -6,7 +6,7 @@ import MyPoliciesPage from "./pages/MyPoliciesPage";
 import InsurerAdminPage from "./pages/InsurerAdminPage";
 
 function NavBar() {
-  const { address, connecting, error, connect, chainId, switchNetwork } = useWallet();
+  const { address, connecting, error, connect, chainId } = useWallet();
   const loc = useLocation();
   const tab = (path: string, label: string) => (
     <Link to={path} className={loc.pathname === path ? "tab tab-active" : "tab"}>
@@ -24,11 +24,7 @@ function NavBar() {
       <div className="wallet">
         {address ? (
           <>
-            {isWrongNetwork(chainId) && (
-              <button className="secondary" onClick={switchNetwork} title={`Add or switch to ${EXPECTED_CHAIN_NAME}`}>
-                Switch to {EXPECTED_CHAIN_NAME}
-              </button>
-            )}
+            {isWrongNetwork(chainId) && <span className="warn">Wrong network — switch to {EXPECTED_CHAIN_NAME}</span>}
             <span className="address">{fmtAddress(address)}</span>
           </>
         ) : (
