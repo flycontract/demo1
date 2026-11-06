@@ -19,11 +19,13 @@ interface PolicyRow {
 type Msg = { text: string; kind: "error" | "success" } | null;
 
 const PILL_CLASS = ["pill-active", "pill-verifying", "pill-paid", "pill-nopay", "pill-refunded"];
+const EVENT_QUERY_CHUNK_SIZE = 10_000;
 
 export default function MyPoliciesPage() {
   const { insuranceRead, insurance, address } = useWallet();
   const [rows, setRows] = useState<PolicyRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
   const [refresh, setRefresh] = useState(0);
@@ -31,13 +33,30 @@ export default function MyPoliciesPage() {
   const load = useCallback(async () => {
     if (!address) {
       setRows([]);
+      setLoadError(null);
       setLoading(false);
       return;
     }
     setLoading(true);
+    setLoadError(null);
     try {
+      const deploymentBlock = Number(import.meta.env.VITE_DEPLOY_BLOCK);
+      if (!Number.isSafeInteger(deploymentBlock) || deploymentBlock < 0) {
+        throw new Error("VITE_DEPLOY_BLOCK must be set to the insurance contract's deployment block.");
+      }
+
+      const latestBlock = await insuranceRead.runner!.provider!.getBlockNumber();
+      if (deploymentBlock > latestBlock) {
+        throw new Error("VITE_DEPLOY_BLOCK is later than the current chain head.");
+      }
+
       const filter = insuranceRead.filters.PolicyBought(null, address, null);
-      const events = await insuranceRead.queryFilter(filter);
+      const events = [];
+      for (let fromBlock = deploymentBlock; fromBlock <= latestBlock; fromBlock += EVENT_QUERY_CHUNK_SIZE) {
+        const toBlock = Math.min(fromBlock + EVENT_QUERY_CHUNK_SIZE - 1, latestBlock);
+        const rangeEnd = toBlock === latestBlock ? "latest" : toBlock;
+        events.push(...(await insuranceRead.queryFilter(filter, fromBlock, rangeEnd)));
+      }
       const ids = [...new Set(events.map((e) => Number((e as unknown as { args: { policyId: bigint } }).args.policyId)))];
 
       const out: PolicyRow[] = [];
@@ -61,6 +80,9 @@ export default function MyPoliciesPage() {
       }
       out.sort((a, b) => b.id - a.id);
       setRows(out);
+    } catch (err) {
+      setRows([]);
+      setLoadError(errMsg(err));
     } finally {
       setLoading(false);
     }
@@ -192,6 +214,8 @@ export default function MyPoliciesPage() {
       {address &&
         (loading ? (
           <p className="empty">Loading your policies…</p>
+        ) : loadError ? (
+          <p className="status-msg error">Couldn’t load your policies: {loadError}</p>
         ) : rows.length === 0 ? (
           <p className="empty">You haven't bought any policies yet.</p>
         ) : (
