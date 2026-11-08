@@ -4,9 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "dev": "vite --mode hardhat",
+    "dev:local": "vite --mode hardhat",
+    "dev:sepolia": "vite --mode sepolia",
+    "build": "tsc -b && vite build --mode hardhat",
+    "build:local": "tsc -b && vite build --mode hardhat",
+    "build:sepolia": "tsc -b && vite build --mode sepolia",
+    "preview": "vite preview --mode hardhat",
+    "preview:local": "vite preview --mode hardhat",
+    "preview:sepolia": "vite preview --mode sepolia"
   },
   "dependencies": {
     "ethers": "^6.13.2",

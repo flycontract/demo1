@@ -16,6 +16,7 @@ oracle/dist/
 
 # Frontend
 frontend/dist/
+frontend/.env.sepolia.local
 
 # Python
 .venv/

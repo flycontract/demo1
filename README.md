@@ -132,7 +132,7 @@ the Node oracle's parsing/fetch path.
 
 The frontend has a separate ignored `frontend/.env.local` for the local RPC.
 Update its token address, insurance address, and deployment block from the
-latest local deployment, then start Vite with `npm --prefix frontend run dev`.
+latest local deployment, then run `npm --prefix frontend run dev:local`.
 Connect MetaMask to `http://127.0.0.1:8545` with chain ID `31337`. Restarting
 Hardhat resets the chain; redeploy and refresh these local frontend values.
 
@@ -166,11 +166,20 @@ insurer-only) before its `fulfillVerification` calls will be accepted.
 ```bash
 cd frontend
 npm install
-cp .env.example .env   # fill in VITE_RPC_URL, VITE_TOKEN_ADDRESS, VITE_INSURANCE_ADDRESS
-npm run dev
+cp .env.example .env.sepolia.local
+# Fill in VITE_RPC_URL, VITE_TOKEN_ADDRESS, VITE_INSURANCE_ADDRESS, and VITE_DEPLOY_BLOCK
+npm run dev:sepolia
 ```
 
-Requires MetaMask (or another injected wallet) connected to Sepolia. The
+`dev:sepolia` loads the Sepolia-specific env file even if `.env.local` is
+present for local development and rejects a local chain ID or incomplete
+deployment settings. Use `npm run dev:local` to select the local
+Hardhat deployment instead. The matching `build:sepolia` and `build:local`
+scripts create production builds for those networks; the default `dev` and
+`build` scripts select local mode.
+
+Requires MetaMask (or another injected wallet) connected to Sepolia when using
+the Sepolia mode, or to Hardhat Local (chain ID 31337) when using local mode. The
 **Insurer Admin** tab's write actions only succeed from the account that
 deployed `FlightDelayInsurance` (or whatever the insurer later transfers
 control to — the contract has no `transferOwnership`, deliberately, to keep
