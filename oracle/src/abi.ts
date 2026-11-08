@@ -7,6 +7,7 @@
 export const FLIGHT_DELAY_INSURANCE_ABI = [
   "event VerificationRequested(uint256 indexed requestId, uint256 indexed flightId, uint256 indexed policyId, uint256 scheduledArrival)",
   "event FlightResultRecorded(uint256 indexed flightId, bool cancelled, uint256 actualArrival, uint256 delayMinutes, string dataDate, bytes32 evidenceHash)",
+  "function oracle() view returns (address)",
   "function flights(uint256) view returns (string flightNo, string origin, uint256 scheduledArrival, bool sellable, bool exists)",
   "function verificationRequests(uint256) view returns (uint256 flightId, uint256 policyId, bool exists, bool fulfilled)",
   "function flightResults(uint256) view returns (bool isFinal, bool cancelled, uint256 actualArrival, uint256 delayMinutes, string dataDate, bytes32 evidenceHash)",

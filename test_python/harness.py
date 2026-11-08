@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import urlparse
 
 import solcx
 from web3 import Web3, EthereumTesterProvider
@@ -40,12 +41,30 @@ def compile_all():
 
 
 class Chain:
-    """A deployed DemoToken + FlightDelayInsurance pair plus convenience helpers."""
+    """A deployed contract pair on eth-tester or an attached local RPC chain."""
 
-    def __init__(self):
-        self.tester = EthereumTester()
-        self.w3 = Web3(EthereumTesterProvider(self.tester))
+    def __init__(self, rpc_url: str | None = None, token_address: str | None = None,
+                 insurance_address: str | None = None):
+        if (token_address is None) != (insurance_address is None):
+            raise ValueError("Both token_address and insurance_address must be supplied together")
+
+        self.tester = EthereumTester() if rpc_url is None else None
+        self.w3 = (
+            Web3(EthereumTesterProvider(self.tester))
+            if rpc_url is None
+            else Web3(Web3.HTTPProvider(rpc_url, request_kwargs={"timeout": 10}))
+        )
         accounts = self.w3.eth.accounts
+        if rpc_url is not None:
+            parsed_rpc = urlparse(rpc_url)
+            if parsed_rpc.scheme != "http" or parsed_rpc.hostname not in {"localhost", "127.0.0.1", "::1"}:
+                raise ValueError("External demo RPC must be an HTTP loopback address")
+            chain_id = self.w3.eth.chain_id
+            if chain_id != 31337:
+                raise ValueError(f"Local Hardhat chain ID 31337 required, got {chain_id}")
+            if len(accounts) < 4:
+                raise ValueError("Local RPC must expose at least four unlocked Hardhat accounts")
+
         self.insurer = accounts[0]
         self.oracle = accounts[1]
         self.users = accounts[2:]
@@ -54,22 +73,47 @@ class Chain:
         self.token_abi, token_bin = token_art["abi"], token_art["bin"]
         self.insurance_abi, insurance_bin = insurance_art["abi"], insurance_art["bin"]
 
-        tx = self.w3.eth.contract(abi=self.token_abi, bytecode=token_bin) \
-            .constructor(0).transact({"from": self.insurer})
-        token_addr = self.w3.eth.wait_for_transaction_receipt(tx).contractAddress
-        self.token = self.w3.eth.contract(address=token_addr, abi=self.token_abi)
+        if token_address is not None and insurance_address is not None:
+            token_address = Web3.to_checksum_address(token_address)
+            insurance_address = Web3.to_checksum_address(insurance_address)
+            if self.w3.eth.get_code(token_address) in (b"", b"\x00") or \
+                    self.w3.eth.get_code(insurance_address) in (b"", b"\x00"):
+                raise ValueError("No contract bytecode at the supplied local token/insurance address")
+            self.token = self.w3.eth.contract(address=token_address, abi=self.token_abi)
+            self.insurance = self.w3.eth.contract(address=insurance_address, abi=self.insurance_abi)
+            if self.insurance.functions.insurer().call().lower() != self.insurer.lower():
+                raise ValueError("Local insurance contract insurer does not match Hardhat account #0")
+            if self.insurance.functions.oracle().call().lower() != self.oracle.lower():
+                raise ValueError("Local insurance contract oracle does not match Hardhat account #1")
+        else:
+            tx = self.w3.eth.contract(abi=self.token_abi, bytecode=token_bin) \
+                .constructor(0).transact({"from": self.insurer})
+            token_addr = self.w3.eth.wait_for_transaction_receipt(tx).contractAddress
+            self.token = self.w3.eth.contract(address=token_addr, abi=self.token_abi)
 
-        tx = self.w3.eth.contract(abi=self.insurance_abi, bytecode=insurance_bin) \
-            .constructor(token_addr, self.oracle).transact({"from": self.insurer})
-        insurance_addr = self.w3.eth.wait_for_transaction_receipt(tx).contractAddress
-        self.insurance = self.w3.eth.contract(address=insurance_addr, abi=self.insurance_abi)
+            tx = self.w3.eth.contract(abi=self.insurance_abi, bytecode=insurance_bin) \
+                .constructor(token_addr, self.oracle).transact({"from": self.insurer})
+            insurance_addr = self.w3.eth.wait_for_transaction_receipt(tx).contractAddress
+            self.insurance = self.w3.eth.contract(address=insurance_addr, abi=self.insurance_abi)
 
     def now(self) -> int:
         return self.w3.eth.get_block("latest")["timestamp"]
 
     def time_travel(self, to_timestamp: int):
-        self.tester.time_travel(to_timestamp)
-        self.tester.mine_blocks(1)
+        if self.tester is not None:
+            self.tester.time_travel(to_timestamp)
+            self.tester.mine_blocks(1)
+            return
+
+        seconds = to_timestamp - self.now()
+        if seconds <= 0:
+            raise ValueError("Target time must be later than the current local-chain time")
+        response = self.w3.provider.make_request("evm_increaseTime", [seconds])
+        if "error" in response:
+            raise RuntimeError(f"Could not advance Hardhat time: {response['error']}")
+        response = self.w3.provider.make_request("evm_mine", [])
+        if "error" in response:
+            raise RuntimeError(f"Could not mine after advancing Hardhat time: {response['error']}")
 
     def mint(self, to: str, amount: int):
         self.token.functions.mint(to, amount).transact({"from": self.insurer})

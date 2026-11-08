@@ -1,0 +1,21 @@
+{
+  "address": "3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
+  "id": "e87adb8e-958b-46a2-b0be-f999096321fd",
+  "version": 3,
+  "Crypto": {
+    "cipher": "aes-128-ctr",
+    "cipherparams": {
+      "iv": "e13a51c9c49bc6946207f1a43994e511"
+    },
+    "ciphertext": "bcd2af7658589dbd41ab852a08e8be71f0c94646f18d5b675d1e696fc3f75cb7",
+    "kdf": "scrypt",
+    "kdfparams": {
+      "salt": "0de55f1461c889947173766a3da10359209b821f8ec5df1a16ae6e254cd1f214",
+      "n": 131072,
+      "dklen": 32,
+      "p": 1,
+      "r": 8
+    },
+    "mac": "24ff77a27255defdddc63dae77b52224f12e6796a927c688d4484d160ef3c851"
+  }
+}

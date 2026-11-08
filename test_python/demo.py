@@ -1,7 +1,8 @@
 """
-Readable end-to-end run on an in-process chain: three travellers buy policies
-on three flights (delayed / on-time / cancelled), the oracle account reports
-each outcome, and every policy settles. No wallet, no testnet, no Node.js.
+Readable end-to-end run on an in-process chain, or an existing local Hardhat
+JSON-RPC deployment: three travellers buy policies on three flights
+(delayed / on-time / cancelled), the oracle account reports each outcome, and
+every policy settles. No wallet or testnet is needed.
 
 This is a *simulation* of the real flow (PRD §8 "独立模拟环境"): the "oracle"
 step here just calls fulfillVerification directly with hand-picked outcomes,
@@ -11,8 +12,11 @@ demonstrate a real pre-departure purchase against real HKIA data (PRD §8
 "未来航班完整流程" -- that requires the deployed contract + the Node oracle
 service + Sepolia, and is out of scope for this in-process script).
 
-Run:  .venv/bin/python test_python/demo.py
+Run in-process: .venv/bin/python test_python/demo.py
+Run on Hardhat: .venv/bin/python test_python/demo.py --rpc-url http://127.0.0.1:8545 \
+    --token-address 0x... --insurance-address 0x...
 """
+import argparse
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,15 +30,30 @@ def fmt(ts):
 
 
 def main():
-    c = Chain()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--rpc-url", help="attach to a local Hardhat JSON-RPC node (chain ID 31337)")
+    parser.add_argument("--token-address", help="existing local DemoToken address")
+    parser.add_argument("--insurance-address", help="existing local FlightDelayInsurance address")
+    args = parser.parse_args()
+    if bool(args.token_address) != bool(args.insurance_address):
+        parser.error("--token-address and --insurance-address must be supplied together")
+    if args.rpc_url and not args.token_address:
+        parser.error("local RPC mode requires the addresses printed by `npm run local:deploy`")
+    if (args.token_address or args.insurance_address) and not args.rpc_url:
+        parser.error("contract addresses require --rpc-url")
+
+    c = Chain(args.rpc_url, args.token_address, args.insurance_address)
+    if args.rpc_url:
+        print(f"Connected to local RPC chain {c.w3.eth.chain_id}")
     print(f"DemoToken deployed at   {c.token.address}")
     print(f"Insurance deployed at   {c.insurance.address}")
     print(f"Insurer account         {c.insurer}")
     print(f"Oracle account          {c.oracle}\n")
 
-    c.fund_pool(INITIAL_POOL_FUND)
-    print(f"Insurer funded pool with {INITIAL_POOL_FUND} FDT "
-          f"(pool balance: {c.balance()} FDT)\n")
+    starting_pool = c.balance()
+    if starting_pool < INITIAL_POOL_FUND:
+        c.fund_pool(INITIAL_POOL_FUND - starting_pool)
+    print(f"Starting pool balance: {c.balance()} FDT\n")
 
     sched = c.now() + 3 * 24 * 3600
     print(f"Registering 3 flights, all scheduled to arrive {fmt(sched)}...")

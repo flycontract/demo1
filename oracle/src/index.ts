@@ -121,12 +121,21 @@ async function processRequest(db: ReturnType<typeof openDb>, contract: Contract,
 }
 
 async function main() {
-  const db = openDb(config.dbPath);
   const provider = getProvider();
+  const network = await provider.getNetwork();
+  if (config.expectedChainId !== undefined && network.chainId !== config.expectedChainId) {
+    throw new Error(`RPC chain ID ${network.chainId} does not match configured CHAIN_ID ${config.expectedChainId}`);
+  }
+
   const wallet = getOracleWallet(provider);
   const contract = getContract(wallet);
   const readContract = getContract(provider);
+  const [oracleAddress, signerAddress] = await Promise.all([contract.oracle(), wallet.getAddress()]);
+  if (oracleAddress.toLowerCase() !== signerAddress.toLowerCase()) {
+    throw new Error(`Oracle signer ${signerAddress} does not match contract oracle ${oracleAddress}`);
+  }
 
+  const db = openDb(config.dbPath);
   const latest = await provider.getBlockNumber();
   const fromBlock = getLastProcessedBlock(db) ?? config.deployBlock;
   console.log(`[oracle] recovering VerificationRequested events from block ${fromBlock} to ${latest}...`);

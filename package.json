@@ -5,6 +5,9 @@
   "description": "Hardhat workspace: compiles contracts/ and deploys DemoToken + FlightDelayInsurance to Sepolia. Contract logic is also exercised without Node via test_python/ (see README.md).",
   "scripts": {
     "compile": "hardhat compile",
+    "local:node": "hardhat node",
+    "local:deploy": "hardhat run scripts/deploy-local.ts --network localhost",
+    "local:demo": "node scripts/run-local-demo.mjs --token-address 0x5FbDB2315678afecb367f032d93F642f64180aa3 --insurance-address 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia"
   },
   "devDependencies": {

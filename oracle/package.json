@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts",
+    "start:local": "node --env-file=.env.local --import tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p .",
     "test": "node --import tsx --test src/*.test.ts"
