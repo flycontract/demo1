@@ -74,75 +74,13 @@ python test_python/demo.py        # readable end-to-end run: buy → oracle repo
 These compile the real `contracts/*.sol` with `py-solc-x` and run them on an
 in-process `eth-tester` chain — genuine contract execution, not a mock.
 
-### Local JSON-RPC chain with the Node oracle
-
-The Python `demo.py` chain exists only inside that process. To let the separate
-Node oracle connect over JSON-RPC, use Hardhat's local node instead. Open two
-terminals in the repository root:
-
-```bash
-# Terminal 1: keep this node running
-npm run local:node
-```
-
-```bash
-# Terminal 2: deploy contracts; node output contains the deterministic local
-# account keys. Hardhat's first signer deploys; its second signer (printed as
-# Account #1 because Hardhat numbers from zero) is the oracle.
-npm run local:deploy
-cp oracle/.env.local.example oracle/.env.local
-```
-
-Fill `oracle/.env.local` with the insurance address and deployment block printed
-by deployment, plus the second signer's private key from the local node output.
-Then start the oracle:
-
-```bash
-cd oracle
-npm run start:local
-```
-
-`start:local` loads only `.env.local`, requires chain ID 31337, and checks that
-the configured key matches the deployed contract's oracle. Its SQLite file is
-separate from the Sepolia database. The Hardhat node is ephemeral: restarting
-it resets its chain, so redeploy and refresh `.env.local`. The oracle still
-fetches historical flight results from HKIA; this connects the service to the
-local chain but does not simulate the HKIA response.
-
-To run the Python demo against those same deployed contracts and the persistent
-local node, stop the Node oracle first (the Python demo simulates oracle
-fulfillment directly). Then run from the repository root, substituting the
-token and insurance addresses printed by `npm run local:deploy`:
-
-```bash
-npm run local:demo -- \
-  --token-address 0x... \
-  --insurance-address 0x...
-```
-
-The script uses the project `.venv` Python on macOS/Linux or Windows and
-defaults to `http://127.0.0.1:8545`. Set `LOCAL_RPC_URL` to use another
-loopback RPC port.
-
-The demo requires Hardhat chain ID 31337 and its standard unlocked accounts.
-It attaches to the supplied contracts, funds the pool only if needed, creates
-new demo flights/policies, advances local-chain time, and submits simulated
-results as the configured oracle account. It does not call HKIA or exercise
-the Node oracle's parsing/fetch path.
-
-The frontend has a separate ignored `frontend/.env.local` for the local RPC.
-Update its token address, insurance address, and deployment block from the
-latest local deployment, then run `npm --prefix frontend run dev:local`.
-Connect MetaMask to `http://127.0.0.1:8545` with chain ID `31337`. Restarting
-Hardhat resets the chain; redeploy and refresh these local frontend values.
-
 ### 2. Deploy to Sepolia — needs Node.js ≥ 20
 
 ```bash
 npm install
 cp .env.example .env   # fill in SEPOLIA_RPC_URL, DEPLOYER_PRIVATE_KEY
 npm run compile
-npm run deploy:sepolia
+npm run sepolia:deploy
 ```
 
 Prints the token/insurance addresses and a starting block — paste those into
@@ -166,7 +104,7 @@ insurer-only) before its `fulfillVerification` calls will be accepted.
 ```bash
 cd frontend
 npm install
-cp .env.example .env.sepolia.local
+cp .env.sepolia.example .env.sepolia
 # Fill in VITE_RPC_URL, VITE_TOKEN_ADDRESS, VITE_INSURANCE_ADDRESS, and VITE_DEPLOY_BLOCK
 npm run dev:sepolia
 ```
